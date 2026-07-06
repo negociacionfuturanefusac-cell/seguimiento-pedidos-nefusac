@@ -501,7 +501,12 @@ function viewCalendar(){
   orders.forEach(function(o){
     var pr=o.data.programacion||{}, pg=o.data.pago||{};
     addEv(pr.fecha_visita,o,'visita');
-    if(pg.fecha_programada){ addEv(pg.fecha_programada,o,'programada'); if(pg.dias) addEv(addDays(pg.fecha_programada,pg.dias),o,'entrega'); }
+    if(pg.fecha_programada){
+      var _dias=parseInt(pg.dias,10)||0; if(_dias<0) _dias=0; if(_dias>365) _dias=365;
+      var _dend=_dias?addDays(pg.fecha_programada,_dias):pg.fecha_programada;
+      var _dcur=pg.fecha_programada, _guard=0;
+      while(_dcur&&_dend&&_dcur<=_dend&&_guard<400){ addEv(_dcur,o,'programada'); _dcur=addDays(_dcur,1); _guard++; }
+    }
   });
   var first=new Date(calY,calM,1);
   var startDow=(first.getDay()+6)%7;
