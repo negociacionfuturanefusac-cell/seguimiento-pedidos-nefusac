@@ -120,6 +120,15 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .photo-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:96px;height:96px;flex:none;border:2px dashed #cbd5e1;border-radius:8px;background:none;color:#64748b;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-align:center;padding:4px}
 .photo-add .ic{width:18px;height:18px}
 .photo-add:hover{border-color:#94a3b8;color:#475569}
+.pdf-list,.pdf-grid{display:flex;flex-direction:column;gap:8px}
+.pdf-item{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;background:#fff}
+.pdf-link{display:flex;align-items:center;gap:8px;color:#0f172a;font-size:13px;font-weight:600;text-decoration:none}
+.pdf-link .ic{width:16px;height:16px}
+.pdf-x{background:#0f172a;color:#fff;border:none;border-radius:999px;padding:4px;cursor:pointer;display:flex;flex:none}
+.pdf-x .ic{width:12px;height:12px}
+.pdf-add{display:flex;align-items:center;justify-content:center;gap:6px;border:2px dashed #cbd5e1;border-radius:8px;background:none;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;padding:10px}
+.pdf-add .ic{width:16px;height:16px}
+.pdf-add:hover{border-color:#94a3b8;color:#475569}
 .final{display:flex;align-items:center;gap:12px;border:1px solid #a7f3d0;background:#ecfdf5;border-radius:12px;padding:16px;margin-top:12px}
 .final-circle{width:36px;height:36px;border-radius:999px;background:#059669;color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
 .final-circle .ic{width:20px;height:20px}
@@ -279,7 +288,8 @@ var FORM = {
     {name:'confirmacion',label:'Confirmación de pago',type:'select',options:['Pendiente','Confirmado','Parcial']},
     {name:'fecha_programada',label:'Fecha programada',type:'date'},
     {name:'dias',label:'Número de días',type:'number',placeholder:'Ej. 7'},
-    {name:'observaciones',label:'Observaciones',type:'textarea',placeholder:'Notas de logística'}
+    {name:'observaciones',label:'Observaciones',type:'textarea',placeholder:'Notas de logística'},
+    {name:'comprobante_pago',label:'Comprobante de pago (PDF)',type:'pdf'}
   ],
   finalizado:[
     {name:'fecha_entrega',label:'Fecha de entrega',type:'date'},
@@ -370,6 +380,7 @@ function migrateLocal(){
 var orders=[]; var loadingData=true; var lastFp='';
 var view='list', selectedId=null, filter=null, search='', storageError=false, confirmingDelete=false, expandedDone=null;
 var photoBuf={};
+var pdfBuf={};
 var session=null, loginError=false;
 var _tt=new Date(); var calY=_tt.getFullYear(), calM=_tt.getMonth();
 var USERS={
@@ -397,6 +408,7 @@ function fieldHTML(f,val,stageKey,ro){
   if(f.type==='textarea'){ ctrl='<textarea class="inp ta" name="'+f.name+'"'+d+' placeholder="'+escA(f.placeholder||'')+'">'+esc(val||'')+'</textarea>'; }
   else if(f.type==='select'){ var cur=(val!=null&&val!=='')?val:(f.placeholder?'':f.options[0]); var opts=(f.placeholder?('<option value=""'+(cur===''?' selected':'')+'>'+esc(f.placeholder)+'</option>'):''); opts+=f.options.map(function(o){return '<option'+((cur===o)?' selected':'')+'>'+esc(o)+'</option>';}).join(''); ctrl='<select class="inp" name="'+f.name+'"'+d+'>'+opts+'</select>'; }
   else if(f.type==='photo'){ ctrl=ro?photoRO(val):('<div class="photo" id="ph_'+stageKey+'_'+f.name+'">'+photoInner(stageKey,f.name,val)+'</div>'); }
+  else if(f.type==='pdf'){ ctrl=ro?pdfRO(val):('<div class="pdf" id="pf_'+stageKey+'_'+f.name+'">'+pdfInner(stageKey,f.name,val)+'</div>'); }
   else if(f.link){ if(ro){ var _u=asURL(val); ctrl=_u?('<a class="field-link" href="'+escA(_u)+'" target="_blank" rel="noopener">'+esc(val)+'</a>'):('<input class="inp" type="text" name="'+f.name+'" value="'+escA(val||'')+'" disabled>'); } else { ctrl='<input class="inp" type="text" name="'+f.name+'" value="'+escA(val||'')+'" placeholder="'+escA(f.placeholder||'')+'"><button type="button" class="field-openlink" data-act="open-link">'+svg('ext')+' Abrir enlace</button>'; } }
   else { var t=(f.type==='number')?'number':(f.type==='date')?'date':'text'; ctrl='<input class="inp" type="'+t+'" name="'+f.name+'" value="'+escA(val||'')+'" placeholder="'+escA(f.placeholder||'')+'"'+(f.type==='number'?' inputmode="numeric"':'')+d+'>'; }
   return '<label class="field">'+lab+ctrl+'</label>';
@@ -411,11 +423,23 @@ function photoInner(stageKey,name,val){
   return '<div class="photo-grid">'+thumbs+add+'</div><input type="file" accept="image/*" class="photo-file" data-cid="'+cid+'" multiple hidden>';
 }
 function refreshPhoto(cid){ var p=cid.split(':'); var el=document.getElementById('ph_'+p[0]+'_'+p[1]); if(el) el.innerHTML=photoInner(p[0],p[1],undefined); }
+function pdfRO(val){ var arr=normPdfs(val); if(!arr.length) return '<div class="ro-empty">Sin archivos</div>'; return '<div class="pdf-list">'+arr.map(function(p,i){ var nm=(p&&p.name)?p.name:('comprobante-'+(i+1)+'.pdf'); var dt=(p&&p.data)?p.data:''; return '<div class="pdf-item"><a class="pdf-link" href="'+dt+'" download="'+nm+'">'+svg('download')+' '+esc(nm)+'</a></div>'; }).join('')+'</div>'; }
+function normPdfs(val){ if(val==null||val==='') return []; if(Array.isArray(val)) return val.slice(); return [val]; }
+function pdfArr(cid,val){ return (pdfBuf[cid]!==undefined)?pdfBuf[cid]:normPdfs(val); }
+function pdfInner(stageKey,name,val){
+  var cid=stageKey+':'+name; var arr=pdfArr(cid,val);
+  var items=arr.map(function(p,idx){ var nm=(p&&p.name)?p.name:('comprobante-'+(idx+1)+'.pdf'); var dt=(p&&p.data)?p.data:''; return '<div class="pdf-item"><a class="pdf-link" href="'+dt+'" download="'+nm+'">'+svg('download')+' '+esc(nm)+'</a><button type="button" class="pdf-x" data-act="pdf-remove" data-cid="'+cid+'" data-idx="'+idx+'" aria-label="Quitar archivo">'+svg('x')+'</button></div>'; }).join('');
+  var add='<button type="button" class="pdf-add" data-act="pdf-pick" data-cid="'+cid+'">'+svg('camera')+'<span>'+(arr.length?'Agregar otro':'Subir comprobante (PDF)')+'</span></button>';
+  return '<div class="pdf-grid">'+items+add+'</div><input type="file" accept="application/pdf" class="pdf-file" data-cid="'+cid+'" multiple hidden>';
+}
+function refreshPdf(cid){ var p=cid.split(':'); var el=document.getElementById('pf_'+p[0]+'_'+p[1]); if(el) el.innerHTML=pdfInner(p[0],p[1],undefined); }
+function readPdf(file){ return new Promise(function(resolve,reject){ var r=new FileReader(); r.onload=function(){ resolve({name:file.name,data:r.result}); }; r.onerror=reject; r.readAsDataURL(file); }); }
 function collect(container,fields,stageKey){
   container=container||document;
   var d={};
   fields.forEach(function(f){
     if(f.type==='photo'){ var v=photoBuf[stageKey+':'+f.name]; if(v!==undefined) d[f.name]=v; }
+    else if(f.type==='pdf'){ var v=pdfBuf[stageKey+':'+f.name]; if(v!==undefined) d[f.name]=v; }
     else { var el=container.querySelector('[name="'+f.name+'"]'); if(el) d[f.name]=el.value; }
   });
   return d;
@@ -637,7 +661,7 @@ function createOrder(container){
   var order={id:'p'+Date.now()+Math.random().toString(36).slice(2,6),code:nextCode(orders),createdAt:Date.now(),stageIndex:0,cliente:cliente,data:{solicitud:data}};
   orders.unshift(order);
   runOp(function(){ return remoteInsert(order); });
-  photoBuf={}; selectedId=order.id; view='detail'; render();
+  photoBuf={}; pdfBuf={}; selectedId=order.id; view='detail'; render();
 }
 function completeStage(container,stageKey){
   if(!canReg(stageKey)) return;
@@ -645,7 +669,7 @@ function completeStage(container,stageKey){
   o.data[stageKey]=collect(container,FORM[stageKey],stageKey);
   o.stageIndex=Math.max(o.stageIndex,idx);
   queueSaveOrder(o);
-  photoBuf={}; render();
+  photoBuf={}; pdfBuf={}; render();
 }
 function saveStage(container,stageKey){
   if(!canMod()) return;
@@ -653,14 +677,14 @@ function saveStage(container,stageKey){
   if(stageKey==='solicitud'){ o.cliente=(data.cliente||'').trim(); delete data.cliente; }
   o.data[stageKey]=data; expandedDone=null;
   queueSaveOrder(o);
-  photoBuf={}; render();
+  photoBuf={}; pdfBuf={}; render();
 }
 function doDelete(){
   if(!canDelete()) return;
   var delId=selectedId;
   orders=orders.filter(function(o){return o.id!==delId;});
   runOp(function(){ return remoteDelete(delId); });
-  confirmingDelete=false; view='list'; selectedId=null; photoBuf={}; render();
+  confirmingDelete=false; view='list'; selectedId=null; photoBuf={}; pdfBuf={}; render();
 }
 
 function onClick(e){
@@ -668,13 +692,15 @@ function onClick(e){
   var act=el.getAttribute('data-act');
   if(act==='login'){ doLogin(el.closest('[data-form="login"]')); }
   else if(act==='logout'){ logout(); }
-  else if(act==='new'){ if(!canReg('solicitud')) return; photoBuf={}; view='new'; render(); }
-  else if(act==='back'){ photoBuf={}; view='list'; render(); }
-  else if(act==='open'){ photoBuf={}; selectedId=el.getAttribute('data-id'); view='detail'; render(); }
+  else if(act==='new'){ if(!canReg('solicitud')) return; photoBuf={}; pdfBuf={}; view='new'; render(); }
+  else if(act==='back'){ photoBuf={}; pdfBuf={}; view='list'; render(); }
+  else if(act==='open'){ photoBuf={}; pdfBuf={}; selectedId=el.getAttribute('data-id'); view='detail'; render(); }
   else if(act==='export'){ exportCSV(); }
   else if(act==='filter'){ var k=el.getAttribute('data-key'); filter=(k==='all')?null:k; updateFilterUI(); }
   else if(act==='photo-pick'){ var f=document.querySelector('.photo-file[data-cid="'+el.getAttribute('data-cid')+'"]'); if(f) f.click(); }
+  else if(act==='pdf-pick'){ var f=document.querySelector('.pdf-file[data-cid="'+el.getAttribute('data-cid')+'"]'); if(f) f.click(); }
   else if(act==='photo-remove'){ var pc=el.getAttribute('data-cid'); var pi=parseInt(el.getAttribute('data-idx'),10); if(!Array.isArray(photoBuf[pc])) photoBuf[pc]=[]; photoBuf[pc].splice(pi,1); refreshPhoto(pc); }
+  else if(act==='pdf-remove'){ var pc=el.getAttribute('data-cid'); var pi=parseInt(el.getAttribute('data-idx'),10); if(!Array.isArray(pdfBuf[pc])) pdfBuf[pc]=[]; pdfBuf[pc].splice(pi,1); refreshPdf(pc); }
   else if(act==='open-link'){ var _lf=el.closest('.field'); var _li=_lf?_lf.querySelector('input'):null; var _lu=_li?asURL(_li.value):null; if(_lu) window.open(_lu,'_blank','noopener'); }
   else if(act==='photo-dl'){ var _th=el.closest('.thumb'); var _im=_th?_th.querySelector('img'):null; if(_im&&_im.getAttribute('src')){ downloadDataURL(_im.getAttribute('src'), el.getAttribute('data-name')); } }
   else if(act==='toggle'){ var st=el.getAttribute('data-stage'); expandedDone=(expandedDone===st)?null:st; render(); }
@@ -701,6 +727,13 @@ function onChange(e){
     if(!Array.isArray(photoBuf[cid])) photoBuf[cid]=[];
     var list=Array.prototype.slice.call(files);
     Promise.all(list.map(function(f){return compressImage(f);})).then(function(b64s){ photoBuf[cid]=photoBuf[cid].concat(b64s); refreshPhoto(cid); }).catch(function(){});
+    t.value='';
+  }
+  if(t.classList&&t.classList.contains('pdf-file')){
+    var files=t.files; if(!files||!files.length) return; var cid=t.getAttribute('data-cid');
+    if(!Array.isArray(pdfBuf[cid])) pdfBuf[cid]=[];
+    var list=Array.prototype.slice.call(files);
+    Promise.all(list.map(function(f){return readPdf(f);})).then(function(items){ pdfBuf[cid]=pdfBuf[cid].concat(items); refreshPdf(cid); }).catch(function(){});
     t.value='';
   }
 }
