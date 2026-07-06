@@ -336,11 +336,38 @@ function preview(key,o){
   return '';
 }
 
-var LS_KEY='seguimiento_pedidos_v1';
-function loadOrders(){ try{ var raw=localStorage.getItem(LS_KEY); var arr=raw?JSON.parse(raw):[]; arr.sort(function(a,b){return b.createdAt-a.createdAt;}); return arr; }catch(e){ return []; } }
-function saveOrders(){ try{ localStorage.setItem(LS_KEY,JSON.stringify(orders)); return true; }catch(e){ return false; } }
+/* ==== Sincronización con Supabase (base de datos en la nube) ==== */
+var SUPA_URL='https://zltfujejitcanijvwujg.supabase.co';
+var SUPA_KEY='sb_publishable_7PUsdILESHwKw9ZsN3BeAw_6VIvTBpK';
+var SUPA_API=SUPA_URL+'/rest/v1/pedidos';
+function supaHeaders(json){ var h={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}; if(json){ h['Content-Type']='application/json'; h['Prefer']='return=minimal'; } return h; }
+function supaChk(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r; }
+function rowToOrder(r){ return {id:r.id,code:r.code,cliente:r.cliente,stageIndex:r.stage_index,data:r.data||{},createdAt:new Date(r.created_at).getTime(),updatedAt:r.updated_at||''}; }
+function orderToRow(o){ return {id:o.id,code:o.code,cliente:o.cliente,stage_index:o.stageIndex,data:o.data||{}}; }
+function fetchOrders(){ return fetch(SUPA_API+'?select=*&order=created_at.desc',{headers:supaHeaders(false)}).then(supaChk).then(function(r){return r.json();}).then(function(rows){ return rows.map(rowToOrder); }); }
+function remoteInsert(o){ return fetch(SUPA_API,{method:'POST',headers:supaHeaders(true),body:JSON.stringify(orderToRow(o))}).then(supaChk); }
+function remoteUpdate(id,payload){ return fetch(SUPA_API+'?id=eq.'+encodeURIComponent(id),{method:'PATCH',headers:supaHeaders(true),body:JSON.stringify(payload)}).then(supaChk); }
+function remoteDelete(id){ return fetch(SUPA_API+'?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:supaHeaders(false)}).then(supaChk); }
+var pendingOps=[];
+function syncFail(){ if(!storageError){ storageError=true; render(); } }
+function syncOk(){ if(storageError){ storageError=false; render(); } }
+function runOp(fn){ fn().then(function(){ syncOk(); flushOps(); }).catch(function(){ pendingOps.push(fn); syncFail(); }); }
+function flushOps(){ if(!pendingOps.length) return Promise.resolve(true); var fn=pendingOps.shift(); return fn().then(function(){ syncOk(); return flushOps(); }).catch(function(){ pendingOps.unshift(fn); syncFail(); return false; }); }
+function queueSaveOrder(o){ var payload={cliente:o.cliente,stage_index:o.stageIndex,data:o.data||{}}; var id=o.id; runOp(function(){ return remoteUpdate(id,payload); }); }
+function fingerprint(list){ return list.map(function(o){return o.id+':'+o.stageIndex+':'+o.updatedAt;}).join('|'); }
+function migrateLocal(){
+  try{
+    var raw=localStorage.getItem('seguimiento_pedidos_v1'); if(!raw) return Promise.resolve();
+    var arr=JSON.parse(raw)||[]; var have={}; orders.forEach(function(o){have[o.id]=1;});
+    var pend=arr.filter(function(o){return o&&o.id&&!have[o.id];});
+    if(!pend.length){ localStorage.removeItem('seguimiento_pedidos_v1'); return Promise.resolve(); }
+    return Promise.all(pend.map(function(o){ return remoteInsert(o).then(function(){return true;}).catch(function(){return false;}); }))
+      .then(function(res){ var ok=res.every(function(x){return x;}); if(ok) localStorage.removeItem('seguimiento_pedidos_v1'); return fetchOrders(); })
+      .then(function(list){ orders=list; lastFp=fingerprint(list); });
+  }catch(e){ return Promise.resolve(); }
+}
 
-var orders=loadOrders();
+var orders=[]; var loadingData=true; var lastFp='';
 var view='list', selectedId=null, filter=null, search='', storageError=false, confirmingDelete=false, expandedDone=null;
 var photoBuf={};
 var session=null, loginError=false;
@@ -422,7 +449,9 @@ function listWrapHTML(){
   filtered.sort(function(a,b){ var af=a.stageIndex===4?1:0,bf=b.stageIndex===4?1:0; if(af!==bf) return af-bf; return b.createdAt-a.createdAt; });
   var meta=orders.length?('<div class="meta"><span class="mono muted-xs">'+filtered.length+' de '+orders.length+' pedido'+(orders.length!==1?'s':'')+'</span><button class="linkbtn" data-act="export">'+svg('download')+'Exportar CSV</button></div>'):'';
   var body;
-  if(orders.length===0){
+  if(loadingData&&orders.length===0){
+    body='<div class="nores">Cargando pedidos…</div>';
+  } else if(orders.length===0){
     body='<div class="empty">'+windowMark()+'<div><div class="empty-title">Aún no hay pedidos</div><div class="empty-sub">'+(canReg('solicitud')?'Crea tu primer pedido para empezar a seguir cada visita, fabricación y entrega.':'Cuando el vendedor registre pedidos, aparecerán aquí.')+'</div></div>'+(canReg('solicitud')?('<button class="btn btn-primary" data-act="new">'+svg('plus')+'Nuevo pedido</button>'):'')+'</div>';
   } else if(filtered.length===0){
     body='<div class="nores">No hay pedidos que coincidan con el filtro.</div>';
@@ -499,7 +528,7 @@ function viewList(){
     '<div class="searchbox">'+svg('search','search-ic')+'<input id="search" class="search-inp" placeholder="Buscar por cliente…" value="'+escA(search)+'"></div>'+
     '<div class="chips">'+chipsHTML()+'</div>'+
     '<div id="listwrap">'+listWrapHTML()+'</div>'+
-    '<p class="footnote">Los datos se guardan en este navegador.</p>'+
+    '<p class="footnote">Datos compartidos en la nube · se sincronizan entre dispositivos.</p>'+
     '</div>';
 }
 function viewNew(){
@@ -589,7 +618,7 @@ function viewReport(o){
 function render(){
   var app=document.getElementById('app');
   if(!session){ app.innerHTML=viewLogin(); return; }
-  var html=storageError?'<div class="banner">No se pudieron guardar los cambios en este navegador (el almacenamiento puede estar lleno o bloqueado).</div>':'';
+  var html=storageError?'<div class="banner">Sin conexión con la base de datos. Los últimos cambios se reintentarán automáticamente al recuperar internet.</div>':'';
   if(view==='detail'&&getOrder(selectedId)) html+=viewDetail(getOrder(selectedId));
   else if(view==='report'&&getOrder(selectedId)) html+=viewReport(getOrder(selectedId));
   else if(view==='calendar') html+=viewCalendar();
@@ -606,7 +635,8 @@ function createOrder(container){
   if(!cliente){ var el=container.querySelector('[name="cliente"]'); if(el){ el.focus(); el.style.borderColor='#f43f5e'; } return; }
   delete data.cliente;
   var order={id:'p'+Date.now()+Math.random().toString(36).slice(2,6),code:nextCode(orders),createdAt:Date.now(),stageIndex:0,cliente:cliente,data:{solicitud:data}};
-  orders.unshift(order); if(!saveOrders()) storageError=true;
+  orders.unshift(order);
+  runOp(function(){ return remoteInsert(order); });
   photoBuf={}; selectedId=order.id; view='detail'; render();
 }
 function completeStage(container,stageKey){
@@ -614,19 +644,22 @@ function completeStage(container,stageKey){
   var o=getOrder(selectedId); var idx=-1; for(var i=0;i<STAGES.length;i++){ if(STAGES[i].key===stageKey) idx=i; }
   o.data[stageKey]=collect(container,FORM[stageKey],stageKey);
   o.stageIndex=Math.max(o.stageIndex,idx);
-  if(!saveOrders()) storageError=true; photoBuf={}; render();
+  queueSaveOrder(o);
+  photoBuf={}; render();
 }
 function saveStage(container,stageKey){
   if(!canMod()) return;
   var o=getOrder(selectedId); var data=collect(container,FORM[stageKey],stageKey);
   if(stageKey==='solicitud'){ o.cliente=(data.cliente||'').trim(); delete data.cliente; }
   o.data[stageKey]=data; expandedDone=null;
-  if(!saveOrders()) storageError=true; photoBuf={}; render();
+  queueSaveOrder(o);
+  photoBuf={}; render();
 }
 function doDelete(){
   if(!canDelete()) return;
-  orders=orders.filter(function(o){return o.id!==selectedId;});
-  if(!saveOrders()) storageError=true;
+  var delId=selectedId;
+  orders=orders.filter(function(o){return o.id!==delId;});
+  runOp(function(){ return remoteDelete(delId); });
   confirmingDelete=false; view='list'; selectedId=null; photoBuf={}; render();
 }
 
@@ -680,6 +713,16 @@ function onChange(e){
   app.addEventListener('change',onChange);
   app.addEventListener('keydown',onKeydown);
   render();
+  fetchOrders().then(function(list){ orders=list; lastFp=fingerprint(list); loadingData=false; return migrateLocal(); })
+    .then(function(){ render(); })
+    .catch(function(){ loadingData=false; storageError=true; render(); });
+  setInterval(function(){
+    if(pendingOps.length){ flushOps(); return; }
+    if(!session) return;
+    if(view!=='list'&&view!=='calendar') return;
+    if(confirmingDelete) return;
+    fetchOrders().then(function(list){ var fp=fingerprint(list); if(fp!==lastFp){ lastFp=fp; orders=list; render(); } }).catch(function(){});
+  },20000);
 })();
 </script>
 </body>

@@ -2,7 +2,7 @@
 
 Aplicación web para el seguimiento de pedidos de un negocio de fabricación e instalación de ventanas: desde la solicitud del cliente hasta la entrega final, con fotos, reportes y calendario.
 
-Es un **único archivo HTML autocontenido** (`index.html`): no necesita servidor, internet, instalación ni dependencias externas. Funciona en cualquier navegador moderno, en computadora o celular.
+Es un **único archivo HTML autocontenido** (`index.html`) que se conecta a una **base de datos en la nube (Supabase)**: todos los usuarios ven los mismos pedidos desde cualquier celular o computadora, en tiempo casi real. No necesita instalación; solo un navegador moderno y conexión a internet.
 
 ## Flujo de trabajo (5 etapas)
 
@@ -33,7 +33,8 @@ Todos los usuarios pueden **visualizar** todos los pedidos y generar reportes.
 - Reporte imprimible por pedido con todas las etapas, fotos y cronología de días
 - Calendario mensual con visitas técnicas y entregas (toca un evento para abrir el pedido)
 - Exportación a CSV de todos los pedidos
-- Los datos se guardan en el navegador (localStorage): persisten al cerrar y abrir, pero **solo en ese dispositivo y navegador**
+- Los datos se guardan en una base de datos en la nube (Supabase): **todos los dispositivos ven los mismos pedidos**, con sincronización automática cada 20 segundos y reintento de guardado si se pierde la conexión
+- Migración automática: si un navegador tenía pedidos guardados de la versión anterior (localStorage), se suben solos a la nube la primera vez que se abre esta versión
 
 ## Cómo usarla
 
@@ -46,5 +47,5 @@ Todos los usuarios pueden **visualizar** todos los pedidos y generar reportes.
 ## Tecnología
 
 - HTML + CSS + JavaScript puro (vanilla), sin frameworks ni librerías
-- Persistencia con `localStorage`
-- Sin conexión a internet requerida
+- Base de datos: Supabase (PostgreSQL) mediante su API REST, con clave publicable
+- Requiere conexión a internet para sincronizar; si se corta, los cambios pendientes se reintentan automáticamente
