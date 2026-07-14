@@ -394,7 +394,7 @@ var USERS={
   logistica:{pass:'logistica123',role:'logistica',name:'Logística'},
   admin:{pass:'admin123',role:'admin',name:'Administrador'}
 };
-var ROLE_REG={ solicitud:['vendedor','admin'], programacion:['tecnico','admin'], visita:['tecnico','admin'], pago:['admin'], finalizado:['tecnico','admin'] };
+var ROLE_REG={ solicitud:['vendedor','admin'], programacion:['admin'], visita:['tecnico','admin'], pago:['admin'], finalizado:['tecnico','admin'] };
 function currentRole(){ return session?session.role:null; }
 function canReg(k){ var r=currentRole(); return !!r && ROLE_REG[k].indexOf(r)!==-1; }
 function canMod(){ return currentRole()==='admin'; }
