@@ -585,9 +585,11 @@ function panelHTML(o,i){
     return '<div class="panel active" data-form="'+s.key+'" style="'+vars+'"><div class="phead"><div class="pcircle">'+svg(s.icon)+'</div><div><div class="p-title">'+esc(s.label)+'</div><div class="muted-xs">'+esc(s.role)+' · En curso</div></div></div>'+abody+'</div>';
   }
   var open=(expandedDone===s.key); var pv=preview(s.key,o); var mod=canMod();
+  var isLast=(i===o.stageIndex);
   var init=(s.key==='solicitud')?Object.assign({cliente:o.cliente},o.data.solicitud||{}):(o.data[s.key]||{});
   var dbody=open?('<div class="pbody bordered">'+FORM[s.key].map(function(f){ return fieldHTML(f,init[f.name],s.key,!mod); }).join('')+(mod?('<button class="btn btn-sec" data-act="save" data-stage="'+s.key+'">Guardar cambios</button>'):'')+'</div>'):'';
-  return '<div class="panel done" data-form="'+s.key+'" style="'+vars+'"><button class="phead-btn" data-act="toggle" data-stage="'+s.key+'"><div class="pcircle">'+svg('check')+'</div><div class="pgrow"><div class="p-title">'+esc(s.label)+'</div><div class="muted-xs ellipsis">'+esc(s.role)+(pv?' · '+esc(pv):'')+'</div></div><span class="muted-sm">'+(open?'Cerrar':(mod?'Editar':'Ver'))+'</span></button>'+dbody+'</div>';
+  var revertBtn=(isLast&&mod)?('<button class="btn btn-sec revert-btn" data-act="revert" data-stage="'+s.key+'">'+svg('back')+' Retroceder a etapa anterior</button>'):'';
+  return '<div class="panel done" data-form="'+s.key+'" style="'+vars+'"><button class="phead-btn" data-act="toggle" data-stage="'+s.key+'"><div class="pcircle">'+svg('check')+'</div><div class="pgrow"><div class="p-title">'+esc(s.label)+'</div><div class="muted-xs ellipsis">'+esc(s.role)+(pv?' · '+esc(pv):'')+'</div></div><span class="muted-sm">'+(open?'Cerrar':(mod?'Editar':'Ver'))+'</span></button>'+revertBtn+dbody+'</div>';
 }
 function viewDetail(o){
   STAGES.forEach(function(s,i){ (FORM[s.key]||[]).forEach(function(f){ if(f.type==='photo'){ var cid=s.key+':'+f.name; if(photoBuf[cid]===undefined){ photoBuf[cid]=normPhotos((o.data[s.key]||{})[f.name]); } } }); });
@@ -689,6 +691,18 @@ function saveStage(container,stageKey){
   queueSaveOrder(o);
   photoBuf={}; pdfBuf={}; render();
 }
+function revertStage(stageKey){
+  if(!canMod()) return;
+  var o=getOrder(selectedId); if(!o) return;
+  var idx=-1; for(var i=0;i<STAGES.length;i++){ if(STAGES[i].key===stageKey) idx=i; }
+  if(idx<0 || idx!==o.stageIndex) return;
+  if(o.stageIndex<=0) return;
+  if(!window.confirm('¿Retroceder esta etapa y volver al estado anterior?')) return;
+  o.stageIndex=o.stageIndex-1;
+  queueSaveOrder(o);
+  photoBuf={}; pdfBuf={}; expandedDone=null;
+  render();
+}
 function doDelete(){
   if(!canDelete()) return;
   var delId=selectedId;
@@ -716,6 +730,7 @@ function onClick(e){
   else if(act==='toggle'){ var st=el.getAttribute('data-stage'); expandedDone=(expandedDone===st)?null:st; render(); }
   else if(act==='complete'){ completeStage(el.closest('[data-form]'),el.getAttribute('data-stage')); }
   else if(act==='save'){ saveStage(el.closest('[data-form]'),el.getAttribute('data-stage')); }
+  else if(act==='revert'){ revertStage(el.getAttribute('data-stage')); }
   else if(act==='create'){ createOrder(el.closest('[data-form]')); }
   else if(act==='report'){ view='report'; render(); window.scrollTo(0,0); }
   else if(act==='calendar'){ view='calendar'; render(); window.scrollTo(0,0); }
