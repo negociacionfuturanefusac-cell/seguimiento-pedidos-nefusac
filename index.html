@@ -566,7 +566,6 @@ function viewCalendar(){
       var _fmap=feriadosMap();
       var _target=_dias+1; var _dcur=pg.fecha_programada, _guard=0, _added=0;
       while(_dcur&&_added<_target&&_guard<400){ if(!isFeriado(_dcur,_fmap)){ addEv(_dcur,o,'programada'); _added++; } _dcur=addDays(_dcur,1); _guard++; }
-      while(_dcur&&_dend&&_dcur<=_dend&&_guard<400){ addEv(_dcur,o,'programada'); _dcur=addDays(_dcur,1); _guard++; }
     }
   });
   var todayS=todayStr();
