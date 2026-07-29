@@ -207,6 +207,7 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .cal-navbtn:hover{background:#f8fafc}
 .cal-title{font-size:16px;font-weight:700;min-width:140px;text-align:center}
 .cal-todaybtn{display:block;margin:0 auto 16px;padding:6px 14px}
+.cal-modes{display:flex;justify-content:center;gap:8px;margin-bottom:12px}
 .cal-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 16px;margin-bottom:14px}
 .cal-lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#475569;font-weight:600}
 .cal-lg i{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
@@ -387,7 +388,7 @@ var view='list', selectedId=null, filter=null, search='', storageError=false, co
 var photoBuf={};
 var pdfBuf={};
 var session=null, loginError=false;
-var _tt=new Date(); var calY=_tt.getFullYear(), calM=_tt.getMonth();
+var _tt=new Date(); var calY=_tt.getFullYear(), calM=_tt.getMonth(); var calMode='month'; var calWeekStart=mondayOf(todayStr());
 var USERS={
   vendedor:{pass:'vendedor123',role:'vendedor',name:'Vendedor'},
   tecnico:{pass:'tecnico123',role:'tecnico',name:'Técnico'},
@@ -496,6 +497,7 @@ function topbar(title,subtitle,back,stage,right){
 }
 
 function addDays(s,days){ var d=new Date(s+'T00:00:00'); if(isNaN(d.getTime())) return null; d.setDate(d.getDate()+(parseInt(days,10)||0)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function mondayOf(s){ var d=new Date(s+'T00:00:00'); var dow=(d.getDay()+6)%7; return addDays(s,-dow); }
 function dayDiff(a,b){ if(!a||!b) return null; var d1=new Date(a+'T00:00:00'), d2=new Date(b+'T00:00:00'); if(isNaN(d1.getTime())||isNaN(d2.getTime())) return null; return Math.round((d2-d1)/86400000); }
 function viewCalendar(){
   var MN=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -513,26 +515,37 @@ function viewCalendar(){
       while(_dcur&&_dend&&_dcur<=_dend&&_guard<400){ addEv(_dcur,o,'programada'); _dcur=addDays(_dcur,1); _guard++; }
     }
   });
-  var first=new Date(calY,calM,1);
-  var startDow=(first.getDay()+6)%7;
-  var dim=new Date(calY,calM+1,0).getDate();
   var todayS=todayStr();
   var cells='';
-  for(var b=0;b<startDow;b++) cells+='<div class="cal-cell empty"></div>';
-  for(var d=1;d<=dim;d++){
-    var ds=calY+'-'+String(calM+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  var dowDates=[];
+  var startDow=0, dim=0;
+  if(calMode==='week'){
+    for(var wi=0;wi<7;wi++) dowDates.push(addDays(calWeekStart,wi));
+  } else {
+    var first=new Date(calY,calM,1);
+    startDow=(first.getDay()+6)%7;
+    dim=new Date(calY,calM+1,0).getDate();
+    for(var b=0;b<startDow;b++) cells+='<div class="cal-cell empty"></div>';
+    for(var dd=1;dd<=dim;dd++){ dowDates.push(calY+'-'+String(calM+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0')); }
+  }
+  for(var di=0;di<dowDates.length;di++){
+    var ds=dowDates[di];
+    var d=parseInt(ds.slice(8,10),10);
     var list=map[ds]||[];
     var ev=list.map(function(e){ var m=EVMETA[e.type]; var pg=(e.o.data&&e.o.data.pago)||{}; var tIcon=pg.tipo_entrega==='Movilidad'?svg('car','cal-ev-ic ic-car'):(pg.tipo_entrega==='Planta'?svg('building','cal-ev-ic ic-building'):(pg.tipo_entrega==='Otros'?svg('walk','cal-ev-ic ic-walk'):'')); return '<button class="cal-ev" data-act="open" data-id="'+e.o.id+'" style="'+cssVars(STAGES[m.stage])+'"><span class="cal-ev-lbl">'+tIcon+m.lbl+':</span> '+esc(e.o.cliente||'Sin nombre')+'</button>'; }).join('');
     cells+='<div class="cal-cell'+(ds===todayS?' today':'')+'"><div class="cal-day">'+d+'</div>'+(ev?('<div class="cal-evs">'+ev+'</div>'):'')+'</div>';
   }
-  var total=startDow+dim; var trail=(7-(total%7))%7;
-  for(var t=0;t<trail;t++) cells+='<div class="cal-cell empty"></div>';
+  if(calMode==='month'){
+    var total=startDow+dim; var trail=(7-(total%7))%7;
+    for(var t=0;t<trail;t++) cells+='<div class="cal-cell empty"></div>';
+  }
   var grid='<div class="cal-grid">'+DW.map(function(x){return '<div class="cal-dow">'+x+'</div>';}).join('')+cells+'</div>';
   var count=0; Object.keys(map).forEach(function(k){count+=map[k].length;});
   var legend='<div class="cal-legend"><span class="cal-lg"><i style="background:'+STAGES[2].c.main+'"></i>Visita técnica</span><span class="cal-lg"><i style="background:'+STAGES[4].c.main+'"></i>Entrega</span></div>';
   return topbar('Calendario','Visita técnica, fecha programada y entrega',true,STAGES[1],'<button class="icon-btn" data-act="print" aria-label="Imprimir">'+svg('printer')+'</button>')+
     '<div class="wrap main">'+
-    '<div class="cal-nav"><button class="cal-navbtn" data-act="cal-prev" aria-label="Mes anterior">'+svg('back')+'</button><div class="cal-title">'+MN[calM]+' '+calY+'</div><button class="cal-navbtn" data-act="cal-next" aria-label="Mes siguiente">'+svg('fwd')+'</button></div>'+
+    '<div class="cal-nav"><button class="cal-navbtn" data-act="cal-prev" aria-label="Anterior">'+svg('back')+'</button><div class="cal-title">'+(calMode==='week'?(fmtDate(calWeekStart)+' – '+fmtDate(addDays(calWeekStart,6))):(MN[calM]+' '+calY))+'</div><button class="cal-navbtn" data-act="cal-next" aria-label="Siguiente">'+svg('fwd')+'</button></div>'+
+    '<div class="cal-modes"><button class="chip'+(calMode==='month'?' active':'')+'" data-act="cal-mode-month">Mes</button><button class="chip'+(calMode==='week'?' active':'')+'" data-act="cal-mode-week">Semana actual</button></div>'+
     '<button class="btn btn-sec cal-todaybtn" data-act="cal-today">Hoy</button>'+
     legend+
     grid+
@@ -734,9 +747,11 @@ function onClick(e){
   else if(act==='create'){ createOrder(el.closest('[data-form]')); }
   else if(act==='report'){ view='report'; render(); window.scrollTo(0,0); }
   else if(act==='calendar'){ view='calendar'; render(); window.scrollTo(0,0); }
-  else if(act==='cal-prev'){ calM--; if(calM<0){calM=11;calY--;} render(); }
-  else if(act==='cal-next'){ calM++; if(calM>11){calM=0;calY++;} render(); }
-  else if(act==='cal-today'){ var _n=new Date(); calY=_n.getFullYear(); calM=_n.getMonth(); render(); }
+  else if(act==='cal-prev'){ if(calMode==='week'){ calWeekStart=addDays(calWeekStart,-7); } else { calM--; if(calM<0){calM=11;calY--;} } render(); }
+  else if(act==='cal-next'){ if(calMode==='week'){ calWeekStart=addDays(calWeekStart,7); } else { calM++; if(calM>11){calM=0;calY++;} } render(); }
+  else if(act==='cal-today'){ if(calMode==='week'){ calWeekStart=mondayOf(todayStr()); } else { var _n=new Date(); calY=_n.getFullYear(); calM=_n.getMonth(); } render(); }
+  else if(act==='cal-mode-month'){ calMode='month'; render(); }
+  else if(act==='cal-mode-week'){ calMode='week'; calWeekStart=mondayOf(todayStr()); render(); }
   else if(act==='back-detail'){ view='detail'; render(); }
   else if(act==='print'){ window.print(); }
   else if(act==='del-open'){ if(!canDelete()) return; confirmingDelete=true; render(); }
