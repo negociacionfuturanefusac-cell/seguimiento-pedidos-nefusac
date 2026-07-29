@@ -245,6 +245,15 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
   .rsection{border-color:#cbd5e1}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+.cal-feriado{font-size:9px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:.03em;margin-top:2px}
+.cal-cell.feriado{background:#fef2f2;border-color:#fecaca}
+.feriados-modal{max-width:420px;max-height:80vh;overflow-y:auto}
+.feriados-list{max-height:220px;overflow-y:auto;margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.feriado-row{display:flex;align-items:center;gap:8px;font-size:13px;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px}
+.feriado-date{font-family:ui-monospace,monospace;font-size:12px;color:#475569;white-space:nowrap}
+.feriado-label{flex:1;color:#0f172a}
+.feriado-add{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.feriado-add .inp{flex:1;min-width:120px}
 </style>
 </head>
 <body>
@@ -401,7 +410,7 @@ function migrateLocal(){
 }
 
 var orders=[]; var loadingData=true; var lastFp='';
-var view='list', selectedId=null, filter=null, search='', storageError=false, confirmingDelete=false, expandedDone=null;
+var view='list', selectedId=null, filter=null, search='', storageError=false, confirmingDelete=false, expandedDone=null, feriadosOpen=false;
 var photoBuf={};
 var pdfBuf={};
 var session=null, loginError=false;
@@ -534,6 +543,15 @@ function topbar(title,subtitle,back,stage,right){
 function addDays(s,days){ var d=new Date(s+'T00:00:00'); if(isNaN(d.getTime())) return null; d.setDate(d.getDate()+(parseInt(days,10)||0)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function mondayOf(s){ var d=new Date(s+'T00:00:00'); var dow=(d.getDay()+6)%7; return addDays(s,-dow); }
 function dayDiff(a,b){ if(!a||!b) return null; var d1=new Date(a+'T00:00:00'), d2=new Date(b+'T00:00:00'); if(isNaN(d1.getTime())||isNaN(d2.getTime())) return null; return Math.round((d2-d1)/86400000); }
+var FERIADOS_KEY='feriados_peru_v1';
+var _feriadosStore=null;
+function easterSunday(year){ var a=year%19,b=Math.floor(year/100),c=year%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mon=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1; return year+'-'+String(mon).padStart(2,'0')+'-'+String(day).padStart(2,'0'); }
+function baseFeriadosYear(year){ var easter=easterSunday(year); return [ {date:year+'-01-01',label:'Año Nuevo'}, {date:addDays(easter,-3),label:'Jueves Santo'}, {date:addDays(easter,-2),label:'Viernes Santo'}, {date:year+'-05-01',label:'Día del Trabajo'}, {date:year+'-06-29',label:'San Pedro y San Pablo'}, {date:year+'-07-28',label:'Fiestas Patrias'}, {date:year+'-07-29',label:'Fiestas Patrias'}, {date:year+'-08-30',label:'Santa Rosa de Lima'}, {date:year+'-10-08',label:'Combate de Angamos'}, {date:year+'-11-01',label:'Todos los Santos'}, {date:year+'-12-08',label:'Inmaculada Concepción'}, {date:year+'-12-25',label:'Navidad'} ]; }
+function feriadosLoad(){ if(_feriadosStore) return _feriadosStore; var raw=null; try{ raw=localStorage.getItem(FERIADOS_KEY); }catch(e){} if(raw){ try{ _feriadosStore=JSON.parse(raw); }catch(e){ _feriadosStore=null; } } if(!_feriadosStore||!_feriadosStore.list) _feriadosStore={list:[],years:[]}; return _feriadosStore; }
+function feriadosSave(){ try{ localStorage.setItem(FERIADOS_KEY, JSON.stringify(_feriadosStore)); }catch(e){} }
+function feriadosEnsureYear(year){ var store=feriadosLoad(); if(store.years.indexOf(year)!==-1) return; var have={}; store.list.forEach(function(f){have[f.date]=1;}); baseFeriadosYear(year).forEach(function(f){ if(!have[f.date]){ store.list.push(f); have[f.date]=1; } }); store.years.push(year); feriadosSave(); }
+function feriadosMap(){ var y=(new Date()).getFullYear(); [y-1,y,y+1,y+2,calY-1,calY,calY+1].forEach(feriadosEnsureYear); var store=feriadosLoad(); var map={}; store.list.forEach(function(f){ map[f.date]=f.label; }); return map; }
+function isFeriado(dateStr,map){ if(!dateStr) return false; var y=parseInt(dateStr.slice(0,4),10); feriadosEnsureYear(y); var m=map||feriadosMap(); return !!m[dateStr]; }
 function viewCalendar(){
   var MN=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   var DW=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -545,8 +563,9 @@ function viewCalendar(){
     addEv(pr.fecha_visita,o,'visita');
     if(pg.fecha_programada){
       var _dias=parseInt(pg.dias,10)||0; if(_dias<0) _dias=0; if(_dias>365) _dias=365;
-      var _dend=_dias?addDays(pg.fecha_programada,_dias):pg.fecha_programada;
-      var _dcur=pg.fecha_programada, _guard=0;
+      var _fmap=feriadosMap();
+      var _target=_dias+1; var _dcur=pg.fecha_programada, _guard=0, _added=0;
+      while(_dcur&&_added<_target&&_guard<400){ if(!isFeriado(_dcur,_fmap)){ addEv(_dcur,o,'programada'); _added++; } _dcur=addDays(_dcur,1); _guard++; }
       while(_dcur&&_dend&&_dcur<=_dend&&_guard<400){ addEv(_dcur,o,'programada'); _dcur=addDays(_dcur,1); _guard++; }
     }
   });
@@ -563,12 +582,14 @@ function viewCalendar(){
     for(var b=0;b<startDow;b++) cells+='<div class="cal-cell empty"></div>';
     for(var dd=1;dd<=dim;dd++){ dowDates.push(calY+'-'+String(calM+1).padStart(2,'0')+'-'+String(dd).padStart(2,'0')); }
   }
+  var _calFmap=feriadosMap();
   for(var di=0;di<dowDates.length;di++){
     var ds=dowDates[di];
     var d=parseInt(ds.slice(8,10),10);
     var list=map[ds]||[];
     var ev=list.map(function(e){ var m=EVMETA[e.type]; var pg=(e.o.data&&e.o.data.pago)||{}; var tIcon=pg.tipo_entrega==='Movilidad'?svg('car','cal-ev-ic ic-car'):(pg.tipo_entrega==='Planta'?svg('building','cal-ev-ic ic-building'):(pg.tipo_entrega==='Otros'?svg('walk','cal-ev-ic ic-walk'):'')); return '<button class="cal-ev" data-act="open" data-id="'+e.o.id+'" style="'+cssVars(STAGES[m.stage])+'"><span class="cal-ev-lbl">'+tIcon+m.lbl+':</span> '+esc(e.o.cliente||'Sin nombre')+'</button>'; }).join('');
-    cells+='<div class="cal-cell'+(ds===todayS?' today':'')+'"><div class="cal-day">'+d+'</div>'+(ev?('<div class="cal-evs">'+ev+'</div>'):'')+'</div>';
+    var _fLbl=_calFmap[ds];
+    cells+='<div class="cal-cell'+(ds===todayS?' today':'')+(_fLbl?' feriado':'')+'"><div class="cal-day">'+d+'</div>'+(_fLbl?'<div class="cal-feriado">FERIADO</div>':'')+(ev?('<div class="cal-evs">'+ev+'</div>'):'')+'</div>';
   }
   if(calMode==='month'){
     var total=startDow+dim; var trail=(7-(total%7))%7;
@@ -577,7 +598,7 @@ function viewCalendar(){
   var grid='<div class="cal-grid">'+DW.map(function(x){return '<div class="cal-dow">'+x+'</div>';}).join('')+cells+'</div>';
   var count=0; Object.keys(map).forEach(function(k){count+=map[k].length;});
   var legend='<div class="cal-legend"><span class="cal-lg"><i style="background:'+STAGES[2].c.main+'"></i>Visita técnica</span><span class="cal-lg"><i style="background:'+STAGES[4].c.main+'"></i>Entrega</span></div>';
-  return topbar('Calendario','Visita técnica, fecha programada y entrega',true,STAGES[1],'<button class="icon-btn" data-act="print" aria-label="Imprimir">'+svg('printer')+'</button>')+
+  return topbar('Calendario','Visita técnica, fecha programada y entrega',true,STAGES[1],'<button class="icon-btn" data-act="feriados-open" aria-label="Feriados">'+svg('calendar')+'</button><button class="icon-btn" data-act="print" aria-label="Imprimir">'+svg('printer')+'</button>')+
     '<div class="wrap main">'+
     '<div class="cal-nav"><button class="cal-navbtn" data-act="cal-prev" aria-label="Anterior">'+svg('back')+'</button><div class="cal-title">'+(calMode==='week'?(fmtDate(calWeekStart)+' – '+fmtDate(addDays(calWeekStart,6))):(MN[calM]+' '+calY))+'</div><button class="cal-navbtn" data-act="cal-next" aria-label="Siguiente">'+svg('fwd')+'</button></div>'+
     '<div class="cal-modes"><button class="chip'+(calMode==='month'?' active':'')+'" data-act="cal-mode-month">Mes</button><button class="chip'+(calMode==='week'?' active':'')+'" data-act="cal-mode-week">Semana actual</button></div>'+
@@ -585,8 +606,9 @@ function viewCalendar(){
     legend+
     grid+
     '<p class="footnote">'+count+' evento'+(count!==1?'s':'')+' · toca uno para abrir el pedido</p>'+
-    '</div>';
+    '</div>'+feriadosModalHTML();
 }
+function feriadosModalHTML(){ if(!feriadosOpen) return ''; var store=feriadosLoad(); var list=store.list.slice().sort(function(a,b){return a.date<b.date?-1:(a.date>b.date?1:0);}); var rows=list.map(function(f){ return '<div class="feriado-row"><span class="feriado-date">'+esc(fmtDate(f.date))+'</span><span class="feriado-label">'+esc(f.label)+'</span><button class="icon-btn danger" data-act="feriados-del" data-date="'+escA(f.date)+'" aria-label="Eliminar feriado">'+svg('x')+'</button></div>'; }).join(''); return '<div class="modal-bg"><div class="modal feriados-modal"><h3>Feriados (Perú)</h3><p>Se muestran en el calendario y no se cuentan como día programado de entrega (el rango se extiende automáticamente).</p><div class="feriados-list">'+(rows||'<p class="muted-xs">Sin feriados registrados.</p>')+'</div><div class="feriado-add"><input type="date" id="feriado_date" class="inp"><input type="text" id="feriado_label" class="inp" placeholder="Nombre del feriado"><button class="btn btn-sec" data-act="feriados-add">'+svg('plus')+'Agregar</button></div><div class="modal-row"><button class="btn btn-primary grow" data-act="feriados-close">Cerrar</button></div></div></div>'; }
 function viewLogin(){
   var opts=Object.keys(USERS).map(function(u){return '<option value="'+u+'">'+esc(USERS[u].name)+'</option>';}).join('');
   return '<div class="login-wrap"><div class="login-card" data-form="login">'+windowMark()+
@@ -793,6 +815,10 @@ function onClick(e){
   else if(act==='del-open'){ if(!canDelete()) return; confirmingDelete=true; render(); }
   else if(act==='del-cancel'){ confirmingDelete=false; render(); }
   else if(act==='del-confirm'){ doDelete(); }
+  else if(act==='feriados-open'){ feriadosOpen=true; render(); }
+  else if(act==='feriados-close'){ feriadosOpen=false; render(); }
+  else if(act==='feriados-add'){ var _fd=document.getElementById('feriado_date'), _fl=document.getElementById('feriado_label'); var _dv=_fd&&_fd.value; var _lv=(_fl&&_fl.value||'').trim(); if(_dv){ var _store=feriadosLoad(); _store.list=_store.list.filter(function(f){return f.date!==_dv;}); _store.list.push({date:_dv,label:_lv||'Feriado'}); feriadosSave(); } render(); }
+  else if(act==='feriados-del'){ var _dd=el.getAttribute('data-date'); var _store2=feriadosLoad(); _store2.list=_store2.list.filter(function(f){return f.date!==_dd;}); feriadosSave(); render(); }
 }
 function onInput(e){ if(e.target.id==='search'){ search=e.target.value; rebuildList(); } }
 function onKeydown(e){ if(e.key==='Enter'&&e.target&&e.target.getAttribute&&e.target.getAttribute('name')==='pass'){ e.preventDefault(); var c=e.target.closest('[data-form="login"]'); if(c) doLogin(c); } }
