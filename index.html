@@ -432,7 +432,7 @@ var _tt=new Date(); var calY=_tt.getFullYear(), calM=_tt.getMonth(); var calMode
 var USERS={
   vendedor:{pass:'vendedor123',role:'vendedor',name:'Vendedor'},
   tecnico:{pass:'tecnico123',role:'tecnico',name:'Técnico'},
-  logistica:{pass:'logistica123',role:'logistica',name:'Logística'},
+  visita:{pass:'visita123',role:'visita',name:'Visita'},
   admin:{pass:'admin123',role:'admin',name:'Administrador'}
 };
 var ROLE_REG={ solicitud:['vendedor','admin'], programacion:['admin'], visita:['tecnico','admin'], pago:['admin'], finalizado:['tecnico','admin'], venta_caida:['admin'] };
@@ -769,6 +769,7 @@ function viewReport(o){
 function render(){
   var app=document.getElementById('app');
   if(!session){ app.innerHTML=viewLogin(); return; }
+  if(currentRole()==='visita'&&view!=='list'&&view!=='calendar'){ view='list'; selectedId=null; }
   var html=storageError?'<div class="banner">Sin conexión con la base de datos. Los últimos cambios se reintentarán automáticamente al recuperar internet.</div>':'';
   if(view==='detail'&&getOrder(selectedId)) html+=viewDetail(getOrder(selectedId));
   else if(view==='report'&&getOrder(selectedId)) html+=viewReport(getOrder(selectedId));
@@ -834,7 +835,7 @@ function onClick(e){
   else if(act==='logout'){ logout(); }
   else if(act==='new'){ if(!canReg('solicitud')) return; photoBuf={}; pdfBuf={}; view='new'; render(); }
   else if(act==='back'){ photoBuf={}; pdfBuf={}; view='list'; render(); }
-  else if(act==='open'){ photoBuf={}; pdfBuf={}; selectedId=el.getAttribute('data-id'); view='detail'; render(); }
+  else if(act==='open'){ if(currentRole()==='visita') return; photoBuf={}; pdfBuf={}; selectedId=el.getAttribute('data-id'); view='detail'; render(); }
   else if(act==='export'){ exportCSV(); }
   else if(act==='filter'){ var k=el.getAttribute('data-key'); filter=(k==='all')?null:k; updateFilterUI(); }
   else if(act==='photo-pick'){ var f=document.querySelector('.photo-file[data-cid="'+el.getAttribute('data-cid')+'"]'); if(f) f.click(); }
@@ -848,7 +849,7 @@ function onClick(e){
   else if(act==='save'){ saveStage(el.closest('[data-form]'),el.getAttribute('data-stage')); }
   else if(act==='revert'){ revertStage(el.getAttribute('data-stage')); }
   else if(act==='create'){ createOrder(el.closest('[data-form]')); }
-  else if(act==='report'){ view='report'; render(); window.scrollTo(0,0); }
+  else if(act==='report'){ if(currentRole()==='visita') return; view='report'; render(); window.scrollTo(0,0); }
   else if(act==='calendar'){ view='calendar'; render(); window.scrollTo(0,0); }
   else if(act==='cal-prev'){ if(calMode==='week'){ calWeekStart=addDays(calWeekStart,-7); } else { calM--; if(calM<0){calM=11;calY--;} } render(); }
   else if(act==='cal-next'){ if(calMode==='week'){ calWeekStart=addDays(calWeekStart,7); } else { calM++; if(calM>11){calM=0;calY++;} } render(); }
