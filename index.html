@@ -498,7 +498,7 @@ function orderCardHTML(o){
   var s=STAGES[o.stageIndex]; var done=o.stageIndex===4; var next=done?null:STAGES[o.stageIndex+1];
   return '<button class="oc" data-act="open" data-id="'+o.id+'" style="'+cssVars(s)+'">'+
     '<div class="oc-top"><div class="oc-name-wrap"><div class="oc-name">'+esc(o.cliente||'Sin nombre')+'</div><div class="mono muted-xs">'+esc(o.code)+'</div></div>'+badgeHTML(o)+'</div>'+
-    progressHTML(o.stageIndex)+
+    progressStepperHTML(o.stageIndex,o.skip)+
     '<div class="oc-bot"><span class="mono muted-xs">'+esc(fmtDate(dateOnly(o.createdAt)))+'</span>'+
     (next?'<span class="muted-sm">Siguiente: <b>'+esc(next.short)+'</b></span>':'<span class="done-sm">Completado</span>')+'</div></button>';
 }
