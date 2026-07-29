@@ -273,6 +273,7 @@ var STAGES = [
 var FORM = {
   solicitud:[
     {name:'cliente',required:true,label:'Cliente',type:'text',placeholder:'Nombre del cliente'},
+    {name:'modo',label:'Generar pedido o visita técnica',type:'select',options:['Visita técnica','Generar pedido']},
     {name:'fecha',label:'Fecha',type:'date'},
     {name:'direccion',label:'Dirección',type:'text',link:true,placeholder:'Dirección o enlace (URL)'},
     {name:'foto',label:'Foto',type:'photo'},
@@ -683,7 +684,8 @@ function createOrder(container){
   var data=collect(container,FORM.solicitud,'solicitud'); var cliente=(data.cliente||'').trim();
   if(!cliente){ var el=container.querySelector('[name="cliente"]'); if(el){ el.focus(); el.style.borderColor='#f43f5e'; } return; }
   delete data.cliente;
-  var order={id:'p'+Date.now()+Math.random().toString(36).slice(2,6),code:nextCode(orders),createdAt:Date.now(),stageIndex:0,cliente:cliente,data:{solicitud:data}};
+  var modo=data.modo||'Visita técnica'; var initStage=(modo==='Generar pedido')?2:0;
+  var order={id:'p'+Date.now()+Math.random().toString(36).slice(2,6),code:nextCode(orders),createdAt:Date.now(),stageIndex:initStage,cliente:cliente,data:{solicitud:data}};
   orders.unshift(order);
   runOp(function(){ return remoteInsert(order); });
   photoBuf={}; pdfBuf={}; selectedId=order.id; view='detail'; render();
