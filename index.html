@@ -374,7 +374,7 @@ var SUPA_KEY='sb_publishable_7PUsdILESHwKw9ZsN3BeAw_6VIvTBpK';
 var SUPA_API=SUPA_URL+'/rest/v1/pedidos';
 function supaHeaders(json){ var h={'apikey':SUPA_KEY,'Authorization':'Bearer '+SUPA_KEY}; if(json){ h['Content-Type']='application/json'; h['Prefer']='return=minimal'; } return h; }
 function supaChk(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r; }
-function rowToOrder(r){ return {id:r.id,code:r.code,cliente:r.cliente,stageIndex:r.stage_index,data:r.data||{},createdAt:new Date(r.created_at).getTime(),updatedAt:r.updated_at||''}; }
+function rowToOrder(r){ return {id:r.id,code:r.code,cliente:r.cliente,stageIndex:r.stage_index,data:r.data||{},skip:(r.data&&r.data.skip)||[],createdAt:new Date(r.created_at).getTime(),updatedAt:r.updated_at||''}; }
 function orderToRow(o){ return {id:o.id,code:o.code,cliente:o.cliente,stage_index:o.stageIndex,data:o.data||{}}; }
 function fetchOrders(){ return fetch(SUPA_API+'?select=*&order=created_at.desc',{headers:supaHeaders(false)}).then(supaChk).then(function(r){return r.json();}).then(function(rows){ return rows.map(rowToOrder); }); }
 function remoteInsert(o){ return fetch(SUPA_API,{method:'POST',headers:supaHeaders(true),body:JSON.stringify(orderToRow(o))}).then(supaChk); }
@@ -719,7 +719,7 @@ function createOrder(container){
   if(!cliente){ var el=container.querySelector('[name="cliente"]'); if(el){ el.focus(); el.style.borderColor='#f43f5e'; } return; }
   delete data.cliente;
   var modo=data.modo||'Visita técnica'; var initStage=(modo==='Generar pedido')?2:0; var skip=initStage>0?Array.from({length:initStage},function(_,i){return i+1;}):[];
-  var order={id:'p'+Date.now()+Math.random().toString(36).slice(2,6),code:nextCode(orders),createdAt:Date.now(),stageIndex:initStage,skip:skip,cliente:cliente,data:{solicitud:data}};
+  var order={id:'p'+Date.now()+Math.random().toString(36).slice(2,6),code:nextCode(orders),createdAt:Date.now(),stageIndex:initStage,skip:skip,cliente:cliente,data:{solicitud:data,skip:skip}};
   orders.unshift(order);
   runOp(function(){ return remoteInsert(order); });
   photoBuf={}; pdfBuf={}; selectedId=order.id; view='detail'; render();
