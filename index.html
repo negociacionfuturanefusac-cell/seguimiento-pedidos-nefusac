@@ -66,7 +66,7 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .progress{display:flex;gap:4px;margin-top:12px}
 .seg{height:6px;flex:1;border-radius:999px;background:#e2e8f0}
 .seg.fill{background:var(--main)}
-.stepper{display:flex;margin:4px 0 2px}
+.hstepper{display:flex;margin:4px 0 2px}
 .step{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;text-align:center;padding:0 2px}
 .step:not(:first-child)::before{content:'';position:absolute;top:15px;left:-50%;width:100%;height:0;border-top:2px solid #e2e8f0;z-index:0}
 .step.ln-done:not(:first-child)::before{border-top-color:#10b981}
@@ -78,9 +78,9 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .step-lbl{margin-top:8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:#94a3b8;line-height:1.3}
 .step-lbl.done{color:#059669}
 .step-lbl.active{color:var(--stepc)}
-.stepper-foot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:12px}
-.stepper-foot .sf-l{color:#334155;font-weight:700}
-.stepper-foot .sf-r{color:#334155;font-weight:700}
+.hstepper-foot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:12px}
+.hstepper-foot .sf-l{color:#334155;font-weight:700}
+.hstepper-foot .sf-r{color:#334155;font-weight:700}
 .empty{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;background:#fff;border:1px dashed #cbd5e1;border-radius:12px;padding:56px 24px;margin-top:8px}
 .empty-title{font-size:16px;font-weight:600}
 .empty-sub{font-size:14px;color:#64748b;margin-top:4px;max-width:360px}
@@ -485,7 +485,7 @@ function progressStepperHTML(idx){
     else { circ='<div class="step-circ">'+(i+1)+'</div>'; lblCls=''; }
     return '<div class="step'+lnCls+'"'+styleAttr+'>'+circ+'<div class="step-lbl'+lblCls+'">'+esc(s.short)+'</div></div>';
   }).join('');
-  return '<div class="stepper">'+html+'</div><div class="stepper-foot"><span class="sf-l">Etapa '+curNum+' de '+STAGES.length+' · '+esc(curLabel)+'</span><span class="sf-r">'+pct+'%</span></div>';
+  return '<div class="hstepper">'+html+'</div><div class="hstepper-foot"><span class="sf-l">Etapa '+curNum+' de '+STAGES.length+' · '+esc(curLabel)+'</span><span class="sf-r">'+pct+'%</span></div>';
 }
 function badgeHTML(o){
   var s=STAGES[o.stageIndex];
