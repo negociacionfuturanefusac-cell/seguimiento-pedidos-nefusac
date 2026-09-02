@@ -136,6 +136,19 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .dash-empty{padding:30px 12px;text-align:center;color:#94a3b8;font-size:13px}
 .dash-sec{margin-top:18px}
 .dash-sectitle{font-family:ui-monospace,monospace;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:8px}
+.cmp{border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:14px;margin-bottom:14px}
+.cmp-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cmp-t{font-family:ui-monospace,monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+.cmp-pct{font-family:ui-monospace,monospace;font-size:13px;font-weight:800;color:#0f766e}
+.cmp-val{font-size:22px;font-weight:800;color:#0f172a;font-variant-numeric:tabular-nums;line-height:1.2;margin-top:4px}
+.cmp-bar{position:relative;height:12px;border-radius:999px;background:#f1f5f9;overflow:hidden;margin:11px 0 9px}
+.cmp-fill{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:#0d9488}
+.cmp-fill.over{background:#047857}
+.cmp-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12px;color:#64748b}
+.cmp-foot b{color:#0f172a;font-variant-numeric:tabular-nums}
+.cmp-falta{font-weight:700;color:#b45309}
+.cmp-supera{font-weight:700;color:#047857}
+.cmp-nota{margin-top:8px;font-size:11px;color:#94a3b8}
 .panel{border-radius:12px;background:#fff;overflow:hidden}
 .panel.locked{display:flex;align-items:center;gap:12px;border:1px solid #e2e8f0;background:#f8fafc;padding:16px}
 .panel.active{border:2px solid var(--brd)}
@@ -912,6 +925,29 @@ function dashChartHTML(W){
     '<circle id="dashhot" cx="0" cy="0" r="6" fill="#0d9488" stroke="#fff" stroke-width="2" opacity="0"/>'+
     '</svg></div>';
 }
+var VENTA_2025=209231.07;
+function acumuladoAnio(anio){
+  var t=0,n=0, a=String(anio);
+  dashPagos().forEach(function(p){ if(p.f.slice(0,4)===a){ t+=p.v; n++; } });
+  return {total:t,n:n};
+}
+function comparativoHTML(){
+  var anio=parseInt(todayStr().slice(0,4),10);
+  var ac=acumuladoAnio(anio);
+  var pct=VENTA_2025>0?(ac.total/VENTA_2025*100):0;
+  var w=Math.max(0,Math.min(100,pct));
+  var dif=ac.total-VENTA_2025;
+  var estado=(dif>=0)
+    ? ('<span class="cmp-supera">Supera 2025 en '+esc(fmtMoney(dif))+'</span>')
+    : ('<span class="cmp-falta">Faltan '+esc(fmtMoney(-dif))+' para igualar 2025</span>');
+  return '<div class="cmp">'+
+    '<div class="cmp-head"><span class="cmp-t">Acumulado '+anio+' vs venta 2025</span><span class="cmp-pct">'+pct.toFixed(1).replace('.',',')+'% de 2025</span></div>'+
+    '<div class="cmp-val">'+esc(fmtMoney(ac.total))+'</div>'+
+    '<div class="cmp-bar"><div class="cmp-fill'+(dif>=0?' over':'')+'" style="width:'+w.toFixed(2)+'%"></div></div>'+
+    '<div class="cmp-foot"><span>Venta 2025 <b>'+esc(fmtMoney(VENTA_2025))+'</b></span><span>'+estado+'</span></div>'+
+    '<div class="cmp-nota">Acumulado de todo el año '+anio+' ('+ac.n+' pedido'+(ac.n!==1?'s':'')+') · no cambia con el filtro de periodo</div>'+
+    '</div>';
+}
 function viewDashboard(){
   var D=dashboardData(), W=D.puntos, esMes=(dashGran==='mes');
   var unidad=esMes?'mes':'semana', unidadPl=esMes?'meses':'semanas';
@@ -954,7 +990,7 @@ function viewDashboard(){
   }).join('');
   var tabla=(W.length&&sum>0)?('<div class="dash-sec"><div class="dash-sectitle">Detalle por '+unidad+'</div><div class="dash-card"><div class="dash-scroll"><table class="dash-tbl"><thead><tr><th>'+(esMes?'Mes':'Semana')+'</th><th class="num">Pedidos</th><th class="num">Importe</th></tr></thead><tbody>'+filas+'</tbody></table></div></div></div>'):'';
   return topbar('Dashboard','Importe facturado por '+unidad,true,STAGES[3],'<button class="icon-btn" data-act="print" aria-label="Imprimir">'+svg('printer')+'</button>')+
-    '<div class="wrap main">'+chips+ctrls+kpis+cuerpo+tabla+
+    '<div class="wrap main">'+chips+ctrls+comparativoHTML()+kpis+cuerpo+tabla+
     '<p class="footnote">Se agrupa por la fecha programada del pago · solo visible para el administrador</p>'+
     '</div>';
 }
