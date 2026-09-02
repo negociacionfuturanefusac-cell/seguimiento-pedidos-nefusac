@@ -112,7 +112,10 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .money-pre{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:#64748b;pointer-events:none;font-family:ui-monospace,monospace}
 .money-inp{padding-left:36px;font-variant-numeric:tabular-nums}
 .money-ro{font-variant-numeric:tabular-nums}
-.dash-chips{display:flex;gap:8px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px}
+.dash-chips{display:flex;gap:8px;overflow-x:auto;margin-bottom:10px;padding-bottom:2px}
+.dash-ctrls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px}
+.dash-lbl{font-family:ui-monospace,monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-right:2px}
+.dash-sel{width:auto;min-width:158px;padding:6px 12px;font-size:12px;font-weight:600;border-radius:999px;border:1px solid #e2e8f0;color:#475569;background:#fff;font-family:inherit}
 .dash-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
 @media(min-width:620px){.dash-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .kpi{border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:11px 12px}
@@ -459,7 +462,7 @@ var photoBuf={};
 var pdfBuf={};
 var session=null, loginError=false;
 var _tt=new Date(); var calY=_tt.getFullYear(), calM=_tt.getMonth(); var calMode='month'; var calWeekStart=mondayOf(todayStr());
-var dashConf='confpar';
+var dashConf='confpar'; var dashGran='semana'; var dashMes='';
 var USERS={
   vendedor:{pass:'vendedor123',role:'vendedor',name:'Vendedor'},
   tecnico:{pass:'tecnico123',role:'tecnico',name:'Técnico'},
@@ -806,26 +809,59 @@ function fmtMoneyShort(n){ if(n===null||n===undefined) return '—'; var a=Math.
 function niceStep(v){ if(!(v>0)) return 25; var p=Math.pow(10,Math.floor(Math.log(v)/Math.LN10)); var f=v/p; var m=(f<=1)?1:(f<=2)?2:(f<=2.5)?2.5:(f<=5)?5:10; return m*p; }
 function escalaY(maxV){ if(!(maxV>0)) return {max:100,pasos:4}; var st=niceStep(maxV/4); var t=Math.ceil(maxV*1.06/st); if(t>6){ st=niceStep(maxV/6); t=Math.ceil(maxV*1.06/st); } if(t<2) t=2; return {max:st*t,pasos:t}; }
 function dashIncluye(c){ c=c||''; if(dashConf==='todos') return c!=='Venta caída'; if(dashConf==='conf') return c==='Confirmado'; return c==='Confirmado'||c==='Parcial'; }
-function dashboardData(){
-  var b={};
+function mesLbl(ym){ return MES_CORTO[parseInt(ym.slice(5,7),10)-1]+' '+ym.slice(0,4); }
+function mesLargo(ym){ var N=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']; return N[parseInt(ym.slice(5,7),10)-1]+' '+ym.slice(0,4); }
+function ultimoDiaMes(ym){ var y=parseInt(ym.slice(0,4),10), m=parseInt(ym.slice(5,7),10); var d=new Date(y,m,0); return ym+'-'+String(d.getDate()).padStart(2,'0'); }
+function mesSiguiente(ym){ var y=parseInt(ym.slice(0,4),10), m=parseInt(ym.slice(5,7),10)+1; if(m>12){m=1;y++;} return y+'-'+String(m).padStart(2,'0'); }
+function dashPagos(){
+  var res=[];
   orders.forEach(function(o){
     if(isVentaCaida(o)) return;
     var pg=(o.data&&o.data.pago)||{}; var n=moneyNum(pg.importe);
     if(n===null||!pg.fecha_programada) return;
     if(!dashIncluye(pg.confirmacion)) return;
-    var k=mondayOf(pg.fecha_programada); if(!k) return;
-    if(!b[k]) b[k]={total:0,n:0};
-    b[k].total+=n; b[k].n++;
+    res.push({f:pg.fecha_programada,v:n});
   });
-  var hoy=todayStr(); var yy=parseInt(hoy.slice(0,4),10); var mm=parseInt(hoy.slice(5,7),10);
-  var anio=(mm>=7)?yy:yy-1;
-  var start=mondayOf(anio+'-07-01'); var end=mondayOf(hoy);
-  Object.keys(b).forEach(function(k){ if(k>end) end=k; });
-  var weeks=[]; var cur=start, g=0;
-  while(cur&&cur<=end&&g<400){ weeks.push({key:cur,total:(b[cur]?b[cur].total:0),n:(b[cur]?b[cur].n:0)}); cur=addDays(cur,7); g++; }
-  return {weeks:weeks,anio:anio,actual:mondayOf(hoy)};
+  return res;
 }
-function dashChartHTML(W,actual){
+function dashPeriodoBase(){
+  var hoy=todayStr(); var yy=parseInt(hoy.slice(0,4),10), mm=parseInt(hoy.slice(5,7),10);
+  var anio=(mm>=7)?yy:yy-1;
+  var ini=anio+'-07-01', fin=hoy;
+  dashPagos().forEach(function(p){ if(p.f>fin&&p.f>=ini) fin=p.f; });
+  return {ini:ini,fin:fin,anio:anio};
+}
+function dashMeses(){
+  var b=dashPeriodoBase(); var m=b.ini.slice(0,7), mf=b.fin.slice(0,7), out=[], g=0;
+  while(m<=mf&&g<120){ out.push(m); m=mesSiguiente(m); g++; }
+  return out;
+}
+function dashboardData(){
+  var base=dashPeriodoBase();
+  var ini=base.ini, fin=base.fin;
+  if(dashMes){ ini=dashMes+'-01'; fin=ultimoDiaMes(dashMes); }
+  var b={};
+  dashPagos().forEach(function(p){
+    if(p.f<ini||p.f>fin) return;
+    var k=(dashGran==='mes')?p.f.slice(0,7):mondayOf(p.f);
+    if(!k) return;
+    if(!b[k]) b[k]={total:0,n:0};
+    b[k].total+=p.v; b[k].n++;
+  });
+  var pts=[], g=0;
+  if(dashGran==='mes'){
+    var m=ini.slice(0,7), mf=fin.slice(0,7);
+    while(m<=mf&&g<120){ pts.push({key:m,total:(b[m]?b[m].total:0),n:(b[m]?b[m].n:0),lbl:mesLbl(m),rango:mesLargo(m)}); m=mesSiguiente(m); g++; }
+  } else {
+    var w=mondayOf(ini), wf=mondayOf(fin);
+    while(w&&w<=wf&&g<400){ pts.push({key:w,total:(b[w]?b[w].total:0),n:(b[w]?b[w].n:0),lbl:weekLbl(w),rango:weekRange(w)}); w=addDays(w,7); g++; }
+  }
+  while(pts.length&&pts[0].total<=0) pts.shift();
+  if(dashMes){ while(pts.length&&pts[pts.length-1].total<=0) pts.pop(); }
+  var hoy=todayStr();
+  return {puntos:pts,anio:base.anio,actual:(dashGran==='mes')?hoy.slice(0,7):mondayOf(hoy)};
+}
+function dashChartHTML(W){
   var PW=720,PH=320,pl=62,pr=16,pt=20,pb=44;
   var iw=PW-pl-pr, ih=PH-pt-pb;
   var totals=W.map(function(w){return w.total;});
@@ -844,8 +880,8 @@ function dashChartHTML(W,actual){
   for(i=0;i<n;i++){
     if(i%step!==0&&i!==n-1) continue;
     if(i!==n-1&&(n-1-i)<step*0.6) continue;
-    var xa=(i===0)?'start':((i===n-1)?'end':'middle');
-    xl+='<text x="'+xAt(i).toFixed(1)+'" y="'+(pt+ih+22)+'" text-anchor="'+xa+'" font-size="11" fill="#94a3b8" font-family="ui-monospace,monospace">'+esc(weekLbl(W[i].key))+'</text>';
+    var xa=(i===0&&n>1)?'start':((i===n-1&&n>1)?'end':'middle');
+    xl+='<text x="'+xAt(i).toFixed(1)+'" y="'+(pt+ih+22)+'" text-anchor="'+xa+'" font-size="11" fill="#94a3b8" font-family="ui-monospace,monospace">'+esc(W[i].lbl)+'</text>';
   }
   var pts=[],dl=[],dots='';
   for(i=0;i<n;i++){ pts.push([xAt(i),yAt(W[i].total)]); }
@@ -859,50 +895,66 @@ function dashChartHTML(W,actual){
   var marcados={}; marcados[n-1]=1; if(W[iMax]&&W[iMax].total>0) marcados[iMax]=1;
   Object.keys(marcados).forEach(function(k){
     var j=parseInt(k,10); if(!W[j]||W[j].total<=0) return;
-    var anchor=(j===0)?'start':((j===n-1)?'end':'middle');
-    dl.push('<text x="'+pts[j][0].toFixed(1)+'" y="'+(pts[j][1]-12).toFixed(1)+'" text-anchor="'+anchor+'" font-size="11.5" font-weight="700" fill="#0f172a" stroke="#fff" stroke-width="3.5" paint-order="stroke" font-family="ui-monospace,monospace">'+esc(fmtMoneyShort(W[j].total))+'</text>');
+    var anchor=(n<=1)?'middle':((j===0)?'start':((j===n-1)?'end':'middle'));
+    var vec=[]; if(j>0) vec.push(pts[j-1][1]); if(j<n-1) vec.push(pts[j+1][1]);
+    var prom=vec.length?(vec.reduce(function(a,c){return a+c;},0)/vec.length):(pts[j][1]+50);
+    var dy=(prom<pts[j][1]&&pts[j][1]<pt+ih-26)?19:-12;
+    dl.push('<text x="'+pts[j][0].toFixed(1)+'" y="'+(pts[j][1]+dy).toFixed(1)+'" text-anchor="'+anchor+'" font-size="11.5" font-weight="700" fill="#0f172a" stroke="#fff" stroke-width="3.5" paint-order="stroke" font-family="ui-monospace,monospace">'+esc(fmtMoneyShort(W[j].total))+'</text>');
   });
-  var meta=W.map(function(w,k){ return {x:+pts[k][0].toFixed(1),y:+pts[k][1].toFixed(1),lbl:weekRange(w.key),money:fmtMoney(w.total),n:w.n}; });
-  return '<div class="dash-scroll"><svg class="dash-svg" id="dashsvg" viewBox="0 0 '+PW+' '+PH+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Importe facturado por semana" data-pts="'+escA(JSON.stringify(meta))+'">'+
+  var meta=W.map(function(w,k){ return {x:+pts[k][0].toFixed(1),y:+pts[k][1].toFixed(1),lbl:w.rango,money:fmtMoney(w.total),n:w.n}; });
+  return '<div class="dash-scroll"><svg class="dash-svg" id="dashsvg" viewBox="0 0 '+PW+' '+PH+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Importe facturado" data-pts="'+escA(JSON.stringify(meta))+'">'+
     '<defs><linearGradient id="dashg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0d9488" stop-opacity="0.18"/><stop offset="100%" stop-color="#0d9488" stop-opacity="0"/></linearGradient></defs>'+
     grid+xl+
     (area?'<path d="'+area+'" fill="url(#dashg)"/>':'')+
-    '<path d="'+line+'" fill="none" stroke="#0d9488" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'+
+    (n>1?'<path d="'+line+'" fill="none" stroke="#0d9488" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>':'')+
     '<line id="dashcross" x1="0" y1="'+pt+'" x2="0" y2="'+(pt+ih)+'" stroke="#0d9488" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>'+
     dots+dl.join('')+
     '<circle id="dashhot" cx="0" cy="0" r="6" fill="#0d9488" stroke="#fff" stroke-width="2" opacity="0"/>'+
     '</svg></div>';
 }
 function viewDashboard(){
-  var D=dashboardData(), W=D.weeks;
+  var D=dashboardData(), W=D.puntos, esMes=(dashGran==='mes');
+  var unidad=esMes?'mes':'semana', unidadPl=esMes?'meses':'semanas';
   var sum=0,ped=0,best=null,i;
   for(i=0;i<W.length;i++){ sum+=W[i].total; ped+=W[i].n; if(!best||W[i].total>best.total) best=W[i]; }
   var conData=W.filter(function(w){return w.total>0;});
   var prom=conData.length?(sum/conData.length):0;
-  var act=W.length?W[W.length-1]:null;
+  var act=null; for(i=0;i<W.length;i++){ if(W[i].key===D.actual) act=W[i]; }
+  if(!act&&W.length) act=W[W.length-1];
   var chips='<div class="dash-chips">'+
     '<button class="chip'+(dashConf==='confpar'?' active':'')+'" data-act="dash-conf" data-v="confpar">Confirmado + parcial</button>'+
     '<button class="chip'+(dashConf==='conf'?' active':'')+'" data-act="dash-conf" data-v="conf">Solo confirmado</button>'+
     '<button class="chip'+(dashConf==='todos'?' active':'')+'" data-act="dash-conf" data-v="todos">Todos</button>'+
     '</div>';
+  var meses=dashMeses();
+  var opts='<option value=""'+(dashMes?'':' selected')+'>Todo el periodo</option>'+
+    meses.slice().reverse().map(function(m){ return '<option value="'+m+'"'+(dashMes===m?' selected':'')+'>'+esc(mesLargo(m))+'</option>'; }).join('');
+  var ctrls='<div class="dash-ctrls">'+
+    '<span class="dash-lbl">Ver por</span>'+
+    '<button class="chip'+(!esMes?' active':'')+'" data-act="dash-gran" data-v="semana">Semana</button>'+
+    '<button class="chip'+(esMes?' active':'')+'" data-act="dash-gran" data-v="mes">Mes</button>'+
+    '<span class="dash-lbl">Periodo</span>'+
+    '<select class="dash-sel" name="dashmes">'+opts+'</select>'+
+    '</div>';
   var kpis='<div class="dash-kpis">'+
     '<div class="kpi"><div class="kpi-lbl">Total del periodo</div><div class="kpi-val">'+esc(fmtMoney(sum))+'</div><div class="kpi-sub">'+ped+' pedido'+(ped!==1?'s':'')+'</div></div>'+
-    '<div class="kpi"><div class="kpi-lbl">Promedio semanal</div><div class="kpi-val">'+esc(fmtMoney(prom))+'</div><div class="kpi-sub">'+conData.length+' semana'+(conData.length!==1?'s':'')+' con venta</div></div>'+
-    '<div class="kpi"><div class="kpi-lbl">Mejor semana</div><div class="kpi-val">'+esc((best&&best.total>0)?fmtMoney(best.total):'—')+'</div><div class="kpi-sub">'+esc(best&&best.total>0?weekRange(best.key):'Sin datos')+'</div></div>'+
-    '<div class="kpi"><div class="kpi-lbl">Semana actual</div><div class="kpi-val">'+esc(act?fmtMoney(act.total):'—')+'</div><div class="kpi-sub">'+esc(act?weekRange(act.key):'—')+'</div></div>'+
+    '<div class="kpi"><div class="kpi-lbl">Promedio '+(esMes?'mensual':'semanal')+'</div><div class="kpi-val">'+esc(fmtMoney(prom))+'</div><div class="kpi-sub">'+conData.length+' '+(conData.length===1?unidad:unidadPl)+' con venta</div></div>'+
+    '<div class="kpi"><div class="kpi-lbl">Mejor '+unidad+'</div><div class="kpi-val">'+esc((best&&best.total>0)?fmtMoney(best.total):'—')+'</div><div class="kpi-sub">'+esc(best&&best.total>0?best.rango:'Sin datos')+'</div></div>'+
+    '<div class="kpi"><div class="kpi-lbl">'+(esMes?'Mes':'Semana')+(dashMes?' más reciente':' actual')+'</div><div class="kpi-val">'+esc(act?fmtMoney(act.total):'—')+'</div><div class="kpi-sub">'+esc(act?act.rango:'—')+'</div></div>'+
     '</div>';
+  var periodoTxt=dashMes?mesLargo(dashMes):('julio '+D.anio+' a la fecha');
   var cuerpo;
   if(!W.length||sum<=0){
-    cuerpo='<div class="dash-card"><div class="dash-empty">Todavía no hay importes registrados en este periodo.<br>Se irá llenando solo conforme Logística confirme los pagos.</div></div>';
+    cuerpo='<div class="dash-card"><div class="dash-empty">No hay importes registrados en '+esc(periodoTxt)+'.<br>El gráfico se llena solo conforme Logística confirme los pagos.</div></div>';
   } else {
-    cuerpo='<div class="dash-card" id="dashcard"><div class="dash-cardtitle">Importe facturado por semana · julio '+D.anio+' a la fecha</div>'+dashChartHTML(W,D.actual)+'<div class="dash-tip" id="dashtip"></div></div>';
+    cuerpo='<div class="dash-card" id="dashcard"><div class="dash-cardtitle">Importe facturado por '+unidad+' · '+esc(periodoTxt)+'</div>'+dashChartHTML(W)+'<div class="dash-tip" id="dashtip"></div></div>';
   }
   var filas=W.slice().reverse().map(function(w){
-    return '<tr'+(w.key===D.actual?' class="now"':'')+'><td>'+esc(weekRange(w.key))+'</td><td class="num">'+w.n+'</td><td class="num">'+esc(w.total>0?fmtMoney(w.total):'—')+'</td></tr>';
+    return '<tr'+(w.key===D.actual?' class="now"':'')+'><td>'+esc(w.rango)+'</td><td class="num">'+w.n+'</td><td class="num">'+esc(w.total>0?fmtMoney(w.total):'—')+'</td></tr>';
   }).join('');
-  var tabla=(W.length&&sum>0)?('<div class="dash-sec"><div class="dash-sectitle">Detalle por semana</div><div class="dash-card"><div class="dash-scroll"><table class="dash-tbl"><thead><tr><th>Semana</th><th class="num">Pedidos</th><th class="num">Importe</th></tr></thead><tbody>'+filas+'</tbody></table></div></div></div>'):'';
-  return topbar('Dashboard','Importe facturado por semana',true,STAGES[3],'<button class="icon-btn" data-act="print" aria-label="Imprimir">'+svg('printer')+'</button>')+
-    '<div class="wrap main">'+chips+kpis+cuerpo+tabla+
+  var tabla=(W.length&&sum>0)?('<div class="dash-sec"><div class="dash-sectitle">Detalle por '+unidad+'</div><div class="dash-card"><div class="dash-scroll"><table class="dash-tbl"><thead><tr><th>'+(esMes?'Mes':'Semana')+'</th><th class="num">Pedidos</th><th class="num">Importe</th></tr></thead><tbody>'+filas+'</tbody></table></div></div></div>'):'';
+  return topbar('Dashboard','Importe facturado por '+unidad,true,STAGES[3],'<button class="icon-btn" data-act="print" aria-label="Imprimir">'+svg('printer')+'</button>')+
+    '<div class="wrap main">'+chips+ctrls+kpis+cuerpo+tabla+
     '<p class="footnote">Se agrupa por la fecha programada del pago · solo visible para el administrador</p>'+
     '</div>';
 }
@@ -1027,6 +1079,7 @@ function onClick(e){
   else if(act==='calendar'){ view='calendar'; render(); window.scrollTo(0,0); }
   else if(act==='dashboard'){ if(!canMod()) return; view='dashboard'; render(); window.scrollTo(0,0); }
   else if(act==='dash-conf'){ dashConf=el.getAttribute('data-v')||'confpar'; render(); }
+  else if(act==='dash-gran'){ dashGran=el.getAttribute('data-v')||'semana'; render(); }
   else if(act==='cal-prev'){ if(calMode==='week'){ calWeekStart=addDays(calWeekStart,-7); } else { calM--; if(calM<0){calM=11;calY--;} } render(); }
   else if(act==='cal-next'){ if(calMode==='week'){ calWeekStart=addDays(calWeekStart,7); } else { calM++; if(calM>11){calM=0;calY++;} } render(); }
   else if(act==='cal-today'){ if(calMode==='week'){ calWeekStart=mondayOf(todayStr()); } else { var _n=new Date(); calY=_n.getFullYear(); calM=_n.getMonth(); } render(); }
@@ -1046,6 +1099,7 @@ function onInput(e){ if(e.target.id==='search'){ search=e.target.value; rebuildL
 function onKeydown(e){ if(e.key==='Enter'&&e.target&&e.target.getAttribute&&e.target.getAttribute('name')==='pass'){ e.preventDefault(); var c=e.target.closest('[data-form="login"]'); if(c) doLogin(c); } }
 function onChange(e){
   var t=e.target;
+  if(t&&t.name==='dashmes'){ dashMes=t.value||''; render(); return; }
   if(t.classList&&t.classList.contains('photo-file')){
     var files=t.files; if(!files||!files.length) return; var cid=t.getAttribute('data-cid');
     if(!Array.isArray(photoBuf[cid])) photoBuf[cid]=[];
