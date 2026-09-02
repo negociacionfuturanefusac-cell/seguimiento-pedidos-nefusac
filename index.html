@@ -108,6 +108,10 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .inp{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:9px 12px;font-size:14px;font-family:inherit;background:#fff;color:#0f172a}
 .inp:focus{outline:none;border-color:#0f172a;box-shadow:0 0 0 1px #0f172a}
 .ta{resize:vertical;min-height:76px}
+.money-wrap{position:relative;display:block}
+.money-pre{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:14px;color:#64748b;pointer-events:none;font-family:ui-monospace,monospace}
+.money-inp{padding-left:36px;font-variant-numeric:tabular-nums}
+.money-ro{font-variant-numeric:tabular-nums}
 .panel{border-radius:12px;background:#fff;overflow:hidden}
 .panel.locked{display:flex;align-items:center;gap:12px;border:1px solid #e2e8f0;background:#f8fafc;padding:16px}
 .panel.active{border:2px solid var(--brd)}
@@ -327,6 +331,7 @@ var FORM = {
   ],
   pago:[
     {name:'confirmacion',label:'Confirmación de pago',type:'select',options:['Pendiente','Confirmado','Parcial','Venta caída']},
+    {name:'importe',label:'Importe',type:'money',placeholder:'Ej. 1500.00'},
     {name:'tipo_servicio',label:'Tipo de servicio',type:'select',options:['Instalación','Mantenimiento','Mixto','Entrega']},
     {name:'tipo_entrega',label:'Tipo',type:'select',options:['Movilidad','Planta','Otros']},
     {name:'fecha_programada',label:'Fecha programada',type:'date'},
@@ -351,6 +356,8 @@ function asURL(s){ if(!s) return null; s=String(s).trim(); if(/^https?:\/\//i.te
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function dateOnly(ts){ return new Date(ts).toISOString().slice(0,10); }
 function fmtDate(s){ if(!s) return '—'; var d=new Date(s+'T00:00:00'); if(isNaN(d.getTime())) return s; return d.toLocaleDateString('es',{day:'2-digit',month:'short',year:'numeric'}); }
+function moneyNum(v){ if(v==null||v==='') return null; var n=Number(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?null:n; }
+function fmtMoney(v){ var n=moneyNum(v); if(n===null) return '—'; return 'S/ '+n.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function nextCode(list){ var nums=list.map(function(o){return parseInt(String(o.code||'').replace(/\D/g,''),10);}).filter(function(n){return !isNaN(n);}); var n=(nums.length?Math.max.apply(null,nums):0)+1; return 'PED-'+String(n).padStart(4,'0'); }
 function cssVars(s){ var c=s.c; return '--main:'+c.main+';--soft:'+c.soft+';--softtext:'+c.softtext+';--edge:'+c.edge+';--brd:'+c.brd; }
 
@@ -376,8 +383,8 @@ function compressImage(file){
 function csvCell(v){ var s=String(v==null?'':v); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }
 function downloadDataURL(dataUrl,name){ try{ var a=document.createElement('a'); a.href=dataUrl; a.download=name||'foto.jpg'; document.body.appendChild(a); a.click(); a.remove(); }catch(e){} }
 function exportCSV(){
-  var headers=['Código','Cliente','Etapa actual','Fecha solicitud','Dirección','Fecha visita','Días fabricación','Pago','Fecha programada','Fecha entrega'];
-  var rows=orders.map(function(o){var d=o.data||{};return [o.code,o.cliente,STAGES[o.stageIndex].label,(d.solicitud||{}).fecha||'',(d.solicitud||{}).direccion||'',(d.programacion||{}).fecha_visita||'',(d.visita||{}).dias_fabricacion||'',(d.pago||{}).confirmacion||'',(d.pago||{}).fecha_programada||'',(d.finalizado||{}).fecha_entrega||''].map(csvCell).join(',');});
+  var headers=['Código','Cliente','Etapa actual','Fecha solicitud','Dirección','Fecha visita','Días fabricación','Pago','Importe','Fecha programada','Fecha entrega'];
+  var rows=orders.map(function(o){var d=o.data||{};return [o.code,o.cliente,STAGES[o.stageIndex].label,(d.solicitud||{}).fecha||'',(d.solicitud||{}).direccion||'',(d.programacion||{}).fecha_visita||'',(d.visita||{}).dias_fabricacion||'',(d.pago||{}).confirmacion||'',(d.pago||{}).importe||'',(d.pago||{}).fecha_programada||'',(d.finalizado||{}).fecha_entrega||''].map(csvCell).join(',');});
   var csv='\uFEFF'+[headers.join(',')].concat(rows).join('\n');
   try{ var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); var url=URL.createObjectURL(blob); var a=document.createElement('a'); a.href=url; a.download='pedidos.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }catch(e){}
 }
@@ -387,7 +394,7 @@ function preview(key,o){
   if(!d) return '';
   if(key==='programacion') return d.fecha_visita?'Visita '+fmtDate(d.fecha_visita):'';
   if(key==='visita'){ var nf=normPhotos(d.foto).length; return [d.fecha?fmtDate(d.fecha):'',d.tipo||'',d.dias_fabricacion?d.dias_fabricacion+' días fab.':'',nf?nf+' foto'+(nf>1?'s':''):''].filter(Boolean).join(' · '); }
-  if(key==='pago') return [d.confirmacion,d.fecha_programada?fmtDate(d.fecha_programada):'',d.dias?d.dias+' días':''].filter(Boolean).join(' · ');
+  if(key==='pago') return [d.confirmacion,(moneyNum(d.importe)!==null?fmtMoney(d.importe):''),d.fecha_programada?fmtDate(d.fecha_programada):'',d.dias?d.dias+' días':''].filter(Boolean).join(' · ');
   if(key==='finalizado') return d.fecha_entrega?'Entrega '+fmtDate(d.fecha_entrega):'';
   return '';
 }
@@ -455,6 +462,7 @@ function fieldHTML(f,val,stageKey,ro){
   else if(f.type==='select'){ var cur=(val!=null&&val!=='')?val:(f.placeholder?'':f.options[0]); var opts=(f.placeholder?('<option value=""'+(cur===''?' selected':'')+'>'+esc(f.placeholder)+'</option>'):''); opts+=f.options.map(function(o){return '<option'+((cur===o)?' selected':'')+'>'+esc(o)+'</option>';}).join(''); ctrl='<select class="inp" name="'+f.name+'"'+d+'>'+opts+'</select>'; }
   else if(f.type==='photo'){ ctrl=ro?photoRO(val):('<div class="photo" id="ph_'+stageKey+'_'+f.name+'">'+photoInner(stageKey,f.name,val)+'</div>'); }
   else if(f.type==='pdf'){ ctrl=ro?pdfRO(val):('<div class="pdf" id="pf_'+stageKey+'_'+f.name+'">'+pdfInner(stageKey,f.name,val)+'</div>'); }
+  else if(f.type==='money'){ ctrl=ro?('<div class="money-wrap"><input class="inp money-ro" type="text" name="'+f.name+'" value="'+escA((val==null||val==='')?'':fmtMoney(val))+'" disabled></div>'):('<div class="money-wrap"><span class="money-pre">S/</span><input class="inp money-inp" type="number" name="'+f.name+'" value="'+escA(val||'')+'" placeholder="'+escA(f.placeholder||'')+'" step="0.01" min="0" inputmode="decimal"></div>'); }
   else if(f.link){ if(ro){ var _u=asURL(val); ctrl=_u?('<a class="field-link" href="'+escA(_u)+'" target="_blank" rel="noopener">'+esc(val)+'</a>'):('<input class="inp" type="text" name="'+f.name+'" value="'+escA(val||'')+'" disabled>'); } else { ctrl='<input class="inp" type="text" name="'+f.name+'" value="'+escA(val||'')+'" placeholder="'+escA(f.placeholder||'')+'"><button type="button" class="field-openlink" data-act="open-link">'+svg('ext')+' Abrir enlace</button>'; } }
   else { var t=(f.type==='number')?'number':(f.type==='date')?'date':'text'; ctrl='<input class="inp" type="'+t+'" name="'+f.name+'" value="'+escA(val||'')+'" placeholder="'+escA(f.placeholder||'')+'"'+(f.type==='number'?' inputmode="numeric"':'')+d+'>'; }
   return '<label class="field">'+lab+ctrl+'</label>';
@@ -725,7 +733,7 @@ function reportSectionHTML(o,i){
     var data=stageData(o,s.key); var rows='', photos='';
     FORM[s.key].forEach(function(f){
       if(f.type==='photo'){ var ps=normPhotos(data[f.name]); ps.forEach(function(src,k){ photos+='<figure class="rphoto"><img src="'+src+'" alt="'+escA(f.label)+'"><figcaption>'+esc(f.label)+(ps.length>1?' '+(k+1):'')+'</figcaption></figure>'; }); }
-      else { var val=data[f.name]; var disp; if(val==null||val===''){disp='—';} else if(f.type==='date'){disp=esc(fmtDate(val));} else if(f.link&&asURL(val)){disp='<a href="'+escA(asURL(val))+'" target="_blank" rel="noopener">'+esc(val)+'</a>';} else {disp=esc(val);} rows+='<div class="rfield"><span class="rlabel">'+esc(f.label)+'</span><span class="rvalue">'+disp+'</span></div>'; }
+      else { var val=data[f.name]; var disp; if(val==null||val===''){disp='—';} else if(f.type==='date'){disp=esc(fmtDate(val));} else if(f.type==='money'){disp=esc(fmtMoney(val));} else if(f.link&&asURL(val)){disp='<a href="'+escA(asURL(val))+'" target="_blank" rel="noopener">'+esc(val)+'</a>';} else {disp=esc(val);} rows+='<div class="rfield"><span class="rlabel">'+esc(f.label)+'</span><span class="rvalue">'+disp+'</span></div>'; }
     });
     inner=(rows?('<div class="rfields">'+rows+'</div>'):'')+(photos?('<div class="rphotos">'+photos+'</div>'):'');
   }
