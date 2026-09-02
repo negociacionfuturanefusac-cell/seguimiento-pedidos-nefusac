@@ -242,7 +242,7 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .cal-ev-lbl{display:block;font-weight:800;opacity:.65;font-size:9px;text-transform:uppercase;letter-spacing:.02em;margin-bottom:1px}
 .cal-ev-ic{width:20px;height:20px;vertical-align:-5px;margin-right:3px}
 .cal-ev-ic.ic-car,.cal-ev-ic.ic-building,.cal-ev-ic.ic-walk{color:#000;stroke-width:2.75}
-.cal-ev-amt{display:block;margin-top:3px;padding:1px 4px;border-radius:4px;background:rgba(255,255,255,.75);border:1px solid var(--brd);font-size:10px;font-weight:800;color:var(--main);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.cal-ev-amt{display:block;margin-top:3px;padding:1px 4px;border-radius:4px;background:#fff;border:1px solid #fecaca;font-size:10px;font-weight:800;color:#dc2626;font-variant-numeric:tabular-nums;letter-spacing:.01em}
 @media print{
   .report-actions,.top,.userbar,.cal-navbtn,.cal-todaybtn{display:none!important}
   html,body{background:#fff}
@@ -581,7 +581,7 @@ function viewCalendar(){
   var DW=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
   var EVMETA={visita:{lbl:'Visita técnica',stage:2},programada:{lbl:'Entrega',stage:4},entrega:{lbl:'Entrega',stage:4}};
   var map={};
-  function addEv(date,o,type){ if(!date) return; (map[date]=map[date]||[]).push({o:o,type:type}); }
+  function addEv(date,o,type,first){ if(!date) return; (map[date]=map[date]||[]).push({o:o,type:type,first:!!first}); }
   orders.forEach(function(o){
     var pr=o.data.programacion||{}, pg=o.data.pago||{};
     addEv(pr.fecha_visita,o,'visita');
@@ -589,7 +589,7 @@ function viewCalendar(){
       var _dias=parseInt(pg.dias,10)||0; if(_dias<0) _dias=0; if(_dias>365) _dias=365;
       var _fmap=feriadosMap();
       var _target=_dias+1; var _dcur=pg.fecha_programada, _guard=0, _added=0;
-      while(_dcur&&_added<_target&&_guard<400){ if(!isFeriado(_dcur,_fmap)){ addEv(_dcur,o,'programada'); _added++; } _dcur=addDays(_dcur,1); _guard++; }
+      while(_dcur&&_added<_target&&_guard<400){ if(!isFeriado(_dcur,_fmap)){ addEv(_dcur,o,'programada',_added===0); _added++; } _dcur=addDays(_dcur,1); _guard++; }
     }
   });
   var todayS=todayStr();
@@ -610,7 +610,7 @@ function viewCalendar(){
     var ds=dowDates[di];
     var d=parseInt(ds.slice(8,10),10);
     var list=map[ds]||[];
-    var ev=list.map(function(e){ var m=EVMETA[e.type]; var pg=(e.o.data&&e.o.data.pago)||{}; var tIcon=pg.tipo_entrega==='Movilidad'?svg('car','cal-ev-ic ic-car'):(pg.tipo_entrega==='Planta'?svg('building','cal-ev-ic ic-building'):(pg.tipo_entrega==='Otros'?svg('walk','cal-ev-ic ic-walk'):'')); var lbl=(e.type==='programada'&&pg.tipo_servicio)?pg.tipo_servicio:m.lbl; var amt=(canMod()&&e.type!=='visita'&&moneyNum(pg.importe)!==null)?('<span class="cal-ev-amt">'+esc(fmtMoney(pg.importe))+'</span>'):''; return '<button class="cal-ev" data-act="open" data-id="'+e.o.id+'" style="'+cssVars(STAGES[m.stage])+'"><span class="cal-ev-lbl">'+tIcon+lbl+':</span> '+esc(e.o.cliente||'Sin nombre')+amt+'</button>'; }).join('');
+    var ev=list.map(function(e){ var m=EVMETA[e.type]; var pg=(e.o.data&&e.o.data.pago)||{}; var tIcon=pg.tipo_entrega==='Movilidad'?svg('car','cal-ev-ic ic-car'):(pg.tipo_entrega==='Planta'?svg('building','cal-ev-ic ic-building'):(pg.tipo_entrega==='Otros'?svg('walk','cal-ev-ic ic-walk'):'')); var lbl=(e.type==='programada'&&pg.tipo_servicio)?pg.tipo_servicio:m.lbl; var amt=(canMod()&&e.first&&moneyNum(pg.importe)!==null)?('<span class="cal-ev-amt">'+esc(fmtMoney(pg.importe))+'</span>'):''; return '<button class="cal-ev" data-act="open" data-id="'+e.o.id+'" style="'+cssVars(STAGES[m.stage])+'"><span class="cal-ev-lbl">'+tIcon+lbl+':</span> '+esc(e.o.cliente||'Sin nombre')+amt+'</button>'; }).join('');
     var _fLbl=_calFmap[ds];
     cells+='<div class="cal-cell'+(ds===todayS?' today':'')+(_fLbl?' feriado':'')+'"><div class="cal-day">'+d+'</div>'+(_fLbl?'<div class="cal-feriado">FERIADO</div>':'')+(ev?('<div class="cal-evs">'+ev+'</div>'):'')+'</div>';
   }
