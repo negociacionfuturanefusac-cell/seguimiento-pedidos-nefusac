@@ -242,6 +242,7 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .cal-ev-lbl{display:block;font-weight:800;opacity:.65;font-size:9px;text-transform:uppercase;letter-spacing:.02em;margin-bottom:1px}
 .cal-ev-ic{width:20px;height:20px;vertical-align:-5px;margin-right:3px}
 .cal-ev-ic.ic-car,.cal-ev-ic.ic-building,.cal-ev-ic.ic-walk{color:#000;stroke-width:2.75}
+.cal-ev-amt{display:block;margin-top:3px;padding:1px 4px;border-radius:4px;background:rgba(255,255,255,.75);border:1px solid var(--brd);font-size:10px;font-weight:800;color:var(--main);font-variant-numeric:tabular-nums;letter-spacing:.01em}
 @media print{
   .report-actions,.top,.userbar,.cal-navbtn,.cal-todaybtn{display:none!important}
   html,body{background:#fff}
@@ -609,7 +610,7 @@ function viewCalendar(){
     var ds=dowDates[di];
     var d=parseInt(ds.slice(8,10),10);
     var list=map[ds]||[];
-    var ev=list.map(function(e){ var m=EVMETA[e.type]; var pg=(e.o.data&&e.o.data.pago)||{}; var tIcon=pg.tipo_entrega==='Movilidad'?svg('car','cal-ev-ic ic-car'):(pg.tipo_entrega==='Planta'?svg('building','cal-ev-ic ic-building'):(pg.tipo_entrega==='Otros'?svg('walk','cal-ev-ic ic-walk'):'')); var lbl=(e.type==='programada'&&pg.tipo_servicio)?pg.tipo_servicio:m.lbl; return '<button class="cal-ev" data-act="open" data-id="'+e.o.id+'" style="'+cssVars(STAGES[m.stage])+'"><span class="cal-ev-lbl">'+tIcon+lbl+':</span> '+esc(e.o.cliente||'Sin nombre')+'</button>'; }).join('');
+    var ev=list.map(function(e){ var m=EVMETA[e.type]; var pg=(e.o.data&&e.o.data.pago)||{}; var tIcon=pg.tipo_entrega==='Movilidad'?svg('car','cal-ev-ic ic-car'):(pg.tipo_entrega==='Planta'?svg('building','cal-ev-ic ic-building'):(pg.tipo_entrega==='Otros'?svg('walk','cal-ev-ic ic-walk'):'')); var lbl=(e.type==='programada'&&pg.tipo_servicio)?pg.tipo_servicio:m.lbl; var amt=(canMod()&&moneyNum(pg.importe)!==null)?('<span class="cal-ev-amt">'+esc(fmtMoney(pg.importe))+'</span>'):''; return '<button class="cal-ev" data-act="open" data-id="'+e.o.id+'" style="'+cssVars(STAGES[m.stage])+'"><span class="cal-ev-lbl">'+tIcon+lbl+':</span> '+esc(e.o.cliente||'Sin nombre')+amt+'</button>'; }).join('');
     var _fLbl=_calFmap[ds];
     cells+='<div class="cal-cell'+(ds===todayS?' today':'')+(_fLbl?' feriado':'')+'"><div class="cal-day">'+d+'</div>'+(_fLbl?'<div class="cal-feriado">FERIADO</div>':'')+(ev?('<div class="cal-evs">'+ev+'</div>'):'')+'</div>';
   }
