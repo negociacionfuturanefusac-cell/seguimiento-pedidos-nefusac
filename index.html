@@ -136,6 +136,28 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .dash-empty{padding:30px 12px;text-align:center;color:#94a3b8;font-size:13px}
 .dash-sec{margin-top:18px}
 .dash-sectitle{font-family:ui-monospace,monospace;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:8px}
+.per-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.per-navbtn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid #e2e8f0;background:#fff;border-radius:10px;color:#475569;font-size:17px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1}
+.per-navbtn:hover{border-color:#cbd5e1;background:#f8fafc}
+.per-date{padding:7px 12px;font-size:13px;font-weight:600;border-radius:10px;border:1px solid #e2e8f0;color:#0f172a;background:#fff;font-family:inherit}
+.per-daylbl{font-size:13px;color:#64748b;margin-bottom:14px}
+.per-fgrid{display:grid;grid-template-columns:1fr;gap:10px;padding:0 6px 12px}
+@media(min-width:700px){.per-fgrid{grid-template-columns:1fr 1.4fr .6fr 1.2fr auto;align-items:end}}
+.per-f{display:flex;flex-direction:column;gap:5px}
+.per-f .flabel{font-family:ui-monospace,monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8}
+.per-f .inp{width:100%}
+.per-addbtn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border:none;border-radius:10px;background:#7c3aed;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.per-addbtn:hover{background:#6d28d9}
+.per-msg{margin:0 6px 12px;font-size:12px;border-radius:8px;padding:8px 10px;background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe}
+.per-msg.err{background:#fef2f2;color:#991b1b;border-color:#fecaca}
+.per-x{border:none;background:none;color:#cbd5e1;cursor:pointer;padding:2px;line-height:0;border-radius:6px}
+.per-x:hover{color:#dc2626;background:#fef2f2}
+.per-who{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:#0f172a}
+.per-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.per-bar{height:6px;border-radius:999px;background:#f1f5f9;overflow:hidden;margin-top:5px}
+.per-barfill{height:100%;border-radius:999px}
+.kpi.over .kpi-val{color:#b45309}
+.per-tag{display:inline-block;font-family:ui-monospace,monospace;font-size:10px;background:#f1f5f9;color:#475569;border-radius:6px;padding:2px 6px}
 .cmp{border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:14px;margin-bottom:14px}
 .cmp-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
 .cmp-t{font-family:ui-monospace,monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
@@ -314,6 +336,8 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 var ICON = {
   clipboard:'<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>',
   calendar:'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   chart:'<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/>',
   ruler:'<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/>',
   card:'<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
@@ -476,16 +500,22 @@ var pdfBuf={};
 var session=null, loginError=false;
 var _tt=new Date(); var calY=_tt.getFullYear(), calM=_tt.getMonth(); var calMode='month'; var calWeekStart=mondayOf(todayStr());
 var dashConf='confpar'; var dashGran='semana'; var dashMes='';
+var PERSONAL=['Santos','Yorick','Juan de Dios','Eduardo'];
+var PERSONAL_COLOR={'Santos':'#0284c7','Yorick':'#7c3aed','Juan de Dios':'#d97706','Eduardo':'#0d9488'};
+var JORNADA=8;
+var perFecha=todayStr(), perRango='semana', perMsg='', perMsgErr=false;
 var USERS={
   vendedor:{pass:'vendedor123',role:'vendedor',name:'Vendedor'},
   tecnico:{pass:'tecnico123',role:'tecnico',name:'Técnico'},
   visita:{pass:'visita123',role:'visita',name:'Visita'},
+  supervisor:{pass:'supervisor123',role:'supervisor',name:'Supervisor'},
   admin:{pass:'admin123',role:'admin',name:'Administrador'}
 };
 var ROLE_REG={ solicitud:['vendedor','admin'], programacion:['admin'], visita:['tecnico','admin'], pago:['admin'], finalizado:['tecnico','admin'], venta_caida:['admin'] };
 function currentRole(){ return session?session.role:null; }
 function canReg(k){ var r=currentRole(); return !!r && ROLE_REG[k].indexOf(r)!==-1; }
 function canMod(){ return currentRole()==='admin'; }
+function canHoras(){ var r=currentRole(); return r==='supervisor'||r==='admin'; }
 function canDelete(){ return currentRole()==='admin'; }
 function loadSession(){ try{ var u=localStorage.getItem('seguimiento_user'); if(u&&USERS[u]) return {username:u,role:USERS[u].role,name:USERS[u].name}; }catch(e){} return null; }
 function login(u,p){ if(USERS[u]&&USERS[u].pass===p){ session={username:u,role:USERS[u].role,name:USERS[u].name}; try{localStorage.setItem('seguimiento_user',u);}catch(e){} loginError=false; view='list'; render(); } else { loginError=true; render(); } }
@@ -686,7 +716,7 @@ function viewList(){
   return '<div class="userbar"><span class="mono ubadge">'+esc(session.name)+'</span><button class="logoutbtn" data-act="logout">'+svg('logout')+' Cerrar sesión</button></div>'+
     '<div class="header"><div class="header-bp"><div class="wrap head-inner">'+
     '<div class="brand">'+windowMark()+'<div><div class="app-title">Seguimiento de pedidos</div><div class="app-sub">Ventanas · de la solicitud a la entrega</div></div></div>'+
-    '<div class="head-actions">'+(canMod()?('<button class="btn btn-head" data-act="dashboard">'+svg('chart')+'<span class="hide-sm">Dashboard</span></button>'):'')+'<button class="btn btn-head" data-act="calendar">'+svg('calendar')+'<span class="hide-sm">Calendario</span></button>'+
+    '<div class="head-actions">'+(canMod()?('<button class="btn btn-head" data-act="dashboard">'+svg('chart')+'<span class="hide-sm">Dashboard</span></button>'):'')+(canHoras()?('<button class="btn btn-head" data-act="personal">'+svg('clock')+'<span class="hide-sm">Personal</span></button>'):'')+'<button class="btn btn-head" data-act="calendar">'+svg('calendar')+'<span class="hide-sm">Calendario</span></button>'+
     (canReg('solicitud')?('<button class="btn btn-head" data-act="new">'+svg('plus')+'<span class="hide-sm">Nuevo pedido</span><span class="only-sm">Nuevo</span></button>'):'')+
     '</div>'+
     '</div></div></div>'+
@@ -1028,16 +1058,195 @@ function bindDashboard(){
   svg.addEventListener('touchend',ocultar);
 }
 
+
+/* ==== Modulo: actividades del personal (horas por pedido) ==== */
+function fmtH(n){ var v=Math.round((n||0)*100)/100; return String(v).replace('.',',')+' h'; }
+function capFirst(t){ t=String(t||''); return t.charAt(0).toUpperCase()+t.slice(1); }
+function fechaLargaDia(f){ var d=new Date(f+'T00:00:00'); if(isNaN(d.getTime())) return f; return capFirst(d.toLocaleDateString('es',{weekday:'long',day:'numeric',month:'long',year:'numeric'})); }
+function perColor(nm){ return PERSONAL_COLOR[nm]||'#64748b'; }
+function perIni(){ if(perRango==='semana') return mondayOf(perFecha); if(perRango==='mes') return perFecha.slice(0,7)+'-01'; return perFecha; }
+function perFin(){ if(perRango==='semana') return addDays(mondayOf(perFecha),6); if(perRango==='mes') return ultimoDiaMes(perFecha.slice(0,7)); return perFecha; }
+function perRangoTxt(){ if(perRango==='semana') return 'Semana del '+fmtDate(perIni())+' al '+fmtDate(perFin()); if(perRango==='mes') return mesLargo(perFecha.slice(0,7)); return fechaLargaDia(perFecha); }
+function perPedidos(){
+  return orders.filter(function(o){ return !isVentaCaida(o); })
+    .slice().sort(function(a,b){ return String(b.code||'').localeCompare(String(a.code||'')); });
+}
+function horasList(){
+  var out=[];
+  orders.forEach(function(o){
+    var arr=(o.data&&o.data.horas)||[];
+    if(!Array.isArray(arr)) return;
+    arr.forEach(function(h){
+      if(!h||!h.fecha) return;
+      out.push({oid:o.id,code:o.code||'',cliente:o.cliente||'',id:h.id||'',fecha:h.fecha,persona:h.persona||'',horas:(parseFloat(h.horas)||0),act:h.act||''});
+    });
+  });
+  out.sort(function(a,b){ if(a.fecha!==b.fecha) return a.fecha<b.fecha?1:-1; return String(a.persona).localeCompare(String(b.persona)); });
+  return out;
+}
+function horasEntre(ini,fin){ return horasList().filter(function(h){ return h.fecha>=ini&&h.fecha<=fin; }); }
+function perAdd(c){
+  if(!canHoras()||!c) return;
+  var gv=function(n){ var el=c.querySelector('[name="'+n+'"]'); return el?el.value:''; };
+  var per=gv('perpersona'), oid=gv('perpedido'), act=(gv('peract')||'').trim();
+  var hs=parseFloat(gv('perhoras'));
+  if(!per||!oid||!(hs>0)){ perMsg='Elige trabajador, pedido y una cantidad de horas mayor a 0.'; perMsgErr=true; render(); return; }
+  if(hs>24) hs=24;
+  var o=getOrder(oid);
+  if(!o){ perMsg='No se encontró el pedido.'; perMsgErr=true; render(); return; }
+  if(!o.data) o.data={};
+  if(!Array.isArray(o.data.horas)) o.data.horas=[];
+  o.data.horas.push({id:'h'+Date.now()+Math.random().toString(36).slice(2,5),fecha:perFecha,persona:per,horas:Math.round(hs*100)/100,act:act});
+  queueSaveOrder(o);
+  perMsg='Registrado: '+per+' - '+fmtH(hs)+' en '+(o.code||'')+' ('+fmtDate(perFecha)+').'; perMsgErr=false;
+  render();
+}
+function perDel(oid,eid){
+  if(!canHoras()) return;
+  var o=getOrder(oid);
+  if(!o||!o.data||!Array.isArray(o.data.horas)) return;
+  o.data.horas=o.data.horas.filter(function(h){ return h.id!==eid; });
+  queueSaveOrder(o);
+  perMsg='Registro eliminado.'; perMsgErr=false;
+  render();
+}
+function perResumenPersona(rows){
+  var m={};
+  PERSONAL.forEach(function(n){ m[n]={persona:n,horas:0,dias:{},peds:{},n:0}; });
+  rows.forEach(function(h){
+    if(!m[h.persona]) m[h.persona]={persona:h.persona,horas:0,dias:{},peds:{},n:0};
+    var r=m[h.persona]; r.horas+=h.horas; r.dias[h.fecha]=1; r.peds[h.oid]=1; r.n++;
+  });
+  return Object.keys(m).map(function(k){
+    var r=m[k];
+    return {persona:r.persona,horas:r.horas,dias:Object.keys(r.dias).length,peds:Object.keys(r.peds).length,n:r.n};
+  }).sort(function(a,b){ return b.horas-a.horas; });
+}
+function perResumenPedido(rows){
+  var m={};
+  rows.forEach(function(h){
+    if(!m[h.oid]) m[h.oid]={oid:h.oid,code:h.code,cliente:h.cliente,horas:0,gente:{}};
+    var r=m[h.oid]; r.horas+=h.horas; r.gente[h.persona]=(r.gente[h.persona]||0)+h.horas;
+  });
+  return Object.keys(m).map(function(k){ return m[k]; }).sort(function(a,b){ return b.horas-a.horas; });
+}
+function viewPersonal(){
+  var puedo=canHoras();
+  var delDia=horasEntre(perFecha,perFecha);
+  var rows=horasEntre(perIni(),perFin());
+  var totalDia=0; delDia.forEach(function(h){ totalDia+=h.horas; });
+  var totalRango=0; rows.forEach(function(h){ totalRango+=h.horas; });
+
+  var nav='<div class="per-nav">'+
+    '<button class="per-navbtn" data-act="per-prev" aria-label="Día anterior">&lsaquo;</button>'+
+    '<input class="per-date" type="date" name="perfecha" value="'+escA(perFecha)+'">'+
+    '<button class="per-navbtn" data-act="per-next" aria-label="Día siguiente">&rsaquo;</button>'+
+    '<button class="chip'+(perFecha===todayStr()?' active':'')+'" data-act="per-today">Hoy</button>'+
+    '</div><div class="per-daylbl">'+esc(fechaLargaDia(perFecha))+' &middot; '+esc(fmtH(totalDia))+' registradas</div>';
+
+  var kpis='<div class="dash-kpis">'+PERSONAL.map(function(nm){
+    var t=0,pd={};
+    delDia.forEach(function(h){ if(h.persona===nm){ t+=h.horas; pd[h.oid]=1; } });
+    var np=Object.keys(pd).length;
+    var w=Math.max(0,Math.min(100,(t/JORNADA)*100));
+    return '<div class="kpi'+(t>JORNADA?' over':'')+'">'+
+      '<div class="kpi-lbl"><span class="per-dot" style="display:inline-block;background:'+perColor(nm)+'"></span> '+esc(nm)+'</div>'+
+      '<div class="kpi-val">'+esc(fmtH(t))+'</div>'+
+      '<div class="kpi-sub">'+np+' pedido'+(np!==1?'s':'')+' &middot; jornada '+JORNADA+' h</div>'+
+      '<div class="per-bar"><div class="per-barfill" style="width:'+w.toFixed(1)+'%;background:'+perColor(nm)+'"></div></div>'+
+      '</div>';
+  }).join('')+'</div>';
+
+  var peds=perPedidos();
+  var form='';
+  if(puedo){
+    if(!peds.length){
+      form='<div class="dash-card"><div class="dash-empty">Todavía no hay pedidos registrados a los que asignar horas.</div></div>';
+    } else {
+      var optPer='<option value="">Trabajador…</option>'+PERSONAL.map(function(n){ return '<option value="'+escA(n)+'">'+esc(n)+'</option>'; }).join('');
+      var optPed='<option value="">Pedido…</option>'+peds.map(function(o){ return '<option value="'+escA(o.id)+'">'+esc((o.code||'')+' · '+(o.cliente||'Sin cliente'))+'</option>'; }).join('');
+      form='<div class="dash-card" data-form="perform">'+
+        '<div class="dash-cardtitle">Registrar horas del '+esc(fmtDate(perFecha))+'</div>'+
+        (perMsg?('<div class="per-msg'+(perMsgErr?' err':'')+'">'+esc(perMsg)+'</div>'):'')+
+        '<div class="per-fgrid">'+
+          '<label class="per-f"><span class="flabel">Trabajador</span><select class="inp" name="perpersona">'+optPer+'</select></label>'+
+          '<label class="per-f"><span class="flabel">Pedido</span><select class="inp" name="perpedido">'+optPed+'</select></label>'+
+          '<label class="per-f"><span class="flabel">Horas</span><input class="inp" type="number" name="perhoras" step="0.5" min="0" max="24" inputmode="decimal" placeholder="0"></label>'+
+          '<label class="per-f"><span class="flabel">Actividad</span><input class="inp" type="text" name="peract" placeholder="Instalación, medición, taller…"></label>'+
+          '<button class="per-addbtn" data-act="per-add">'+svg('plus')+' Agregar</button>'+
+        '</div></div>';
+    }
+  }
+
+  var filas=delDia.map(function(h){
+    return '<tr>'+
+      '<td><span class="per-who"><span class="per-dot" style="background:'+perColor(h.persona)+'"></span>'+esc(h.persona)+'</span></td>'+
+      '<td><span class="per-tag">'+esc(h.code)+'</span> '+esc(h.cliente)+'</td>'+
+      '<td>'+esc(h.act||'—')+'</td>'+
+      '<td class="num">'+esc(fmtH(h.horas))+'</td>'+
+      (puedo?('<td class="num"><button class="per-x" data-act="per-del" data-oid="'+escA(h.oid)+'" data-eid="'+escA(h.id)+'" aria-label="Quitar registro">'+svg('x')+'</button></td>'):'')+
+      '</tr>';
+  }).join('');
+  var tablaDia='<div class="dash-sec"><div class="dash-sectitle">Detalle del día</div><div class="dash-card">'+
+    (delDia.length
+      ? ('<div class="dash-scroll"><table class="dash-tbl"><thead><tr><th>Trabajador</th><th>Pedido</th><th>Actividad</th><th class="num">Horas</th>'+(puedo?'<th class="num"></th>':'')+'</tr></thead><tbody>'+filas+
+         '</tbody><tfoot><tr class="now"><td colspan="3"><b>Total del día</b></td><td class="num">'+esc(fmtH(totalDia))+'</td>'+(puedo?'<td></td>':'')+'</tr></tfoot></table></div>')
+      : '<div class="dash-empty">Sin horas registradas el '+esc(fmtDate(perFecha))+'.</div>')+
+    '</div></div>';
+
+  var chips='<div class="dash-ctrls" style="margin-top:18px">'+
+    '<span class="dash-lbl">Resumen</span>'+
+    '<button class="chip'+(perRango==='dia'?' active':'')+'" data-act="per-rango" data-v="dia">Día</button>'+
+    '<button class="chip'+(perRango==='semana'?' active':'')+'" data-act="per-rango" data-v="semana">Semana</button>'+
+    '<button class="chip'+(perRango==='mes'?' active':'')+'" data-act="per-rango" data-v="mes">Mes</button>'+
+    '</div>';
+
+  var rp=perResumenPersona(rows);
+  var maxP=0; rp.forEach(function(r){ if(r.horas>maxP) maxP=r.horas; });
+  var filasP=rp.map(function(r){
+    var w=maxP>0?(r.horas/maxP*100):0;
+    var pct=totalRango>0?(r.horas/totalRango*100):0;
+    return '<tr><td><span class="per-who"><span class="per-dot" style="background:'+perColor(r.persona)+'"></span>'+esc(r.persona)+'</span>'+
+      '<div class="per-bar"><div class="per-barfill" style="width:'+w.toFixed(1)+'%;background:'+perColor(r.persona)+'"></div></div></td>'+
+      '<td class="num">'+r.dias+'</td><td class="num">'+r.peds+'</td>'+
+      '<td class="num">'+esc(fmtH(r.horas))+'</td>'+
+      '<td class="num">'+pct.toFixed(0)+'%</td></tr>';
+  }).join('');
+  var tablaP='<div class="dash-sec"><div class="dash-sectitle">Horas por trabajador &middot; '+esc(perRangoTxt())+'</div><div class="dash-card"><div class="dash-scroll">'+
+    '<table class="dash-tbl"><thead><tr><th>Trabajador</th><th class="num">Días</th><th class="num">Pedidos</th><th class="num">Horas</th><th class="num">% del total</th></tr></thead>'+
+    '<tbody>'+filasP+'</tbody>'+
+    '<tfoot><tr class="now"><td colspan="3"><b>Total</b></td><td class="num">'+esc(fmtH(totalRango))+'</td><td class="num">100%</td></tr></tfoot>'+
+    '</table></div></div></div>';
+
+  var rd=perResumenPedido(rows);
+  var filasD=rd.map(function(r){
+    var gente=Object.keys(r.gente).map(function(k){ return esc(k)+' '+esc(fmtH(r.gente[k])); }).join(' &middot; ');
+    return '<tr><td><span class="per-tag">'+esc(r.code)+'</span> '+esc(r.cliente)+'<div class="kpi-sub" style="margin-top:4px">'+gente+'</div></td>'+
+      '<td class="num">'+esc(fmtH(r.horas))+'</td></tr>';
+  }).join('');
+  var tablaD='<div class="dash-sec"><div class="dash-sectitle">Horas por pedido &middot; '+esc(perRangoTxt())+'</div><div class="dash-card">'+
+    (rd.length?('<div class="dash-scroll"><table class="dash-tbl"><thead><tr><th>Pedido</th><th class="num">Horas</th></tr></thead><tbody>'+filasD+'</tbody></table></div>')
+      :'<div class="dash-empty">Sin horas registradas en '+esc(perRangoTxt())+'.</div>')+
+    '</div></div>';
+
+  return topbar('Actividades del personal','Horas por pedido',true,STAGES[1],'<button class="icon-btn" data-act="print" aria-label="Imprimir">'+svg('printer')+'</button>')+
+    '<div class="wrap main">'+nav+kpis+form+tablaDia+chips+tablaP+tablaD+
+    '<p class="footnote">Registra el supervisor o el administrador &middot; las horas se guardan dentro de cada pedido y se sincronizan en la nube.</p>'+
+    '</div>';
+}
 function render(){
   var app=document.getElementById('app');
   if(!session){ app.innerHTML=viewLogin(); return; }
   if(currentRole()==='visita'&&view!=='list'&&view!=='calendar'){ view='list'; selectedId=null; }
+  if(currentRole()==='supervisor'&&view!=='list'&&view!=='calendar'&&view!=='personal'&&view!=='detail'&&view!=='report'){ view='list'; }
   if(view==='dashboard'&&!canMod()){ view='list'; }
+  if(view==='personal'&&!canHoras()){ view='list'; }
   var html=storageError?'<div class="banner">Sin conexión con la base de datos. Los últimos cambios se reintentarán automáticamente al recuperar internet.</div>':'';
   if(view==='detail'&&getOrder(selectedId)) html+=viewDetail(getOrder(selectedId));
   else if(view==='report'&&getOrder(selectedId)) html+=viewReport(getOrder(selectedId));
   else if(view==='calendar') html+=viewCalendar();
   else if(view==='dashboard') html+=viewDashboard();
+  else if(view==='personal') html+=viewPersonal();
   else if(view==='new') html+=viewNew();
   else html+=viewList();
   app.innerHTML=html;
@@ -1117,6 +1326,13 @@ function onClick(e){
   else if(act==='report'){ if(currentRole()==='visita') return; view='report'; render(); window.scrollTo(0,0); }
   else if(act==='calendar'){ view='calendar'; render(); window.scrollTo(0,0); }
   else if(act==='dashboard'){ if(!canMod()) return; view='dashboard'; render(); window.scrollTo(0,0); }
+  else if(act==='personal'){ if(!canHoras()) return; perMsg=''; perMsgErr=false; view='personal'; render(); window.scrollTo(0,0); }
+  else if(act==='per-prev'){ perFecha=addDays(perFecha,-1)||perFecha; perMsg=''; render(); }
+  else if(act==='per-next'){ perFecha=addDays(perFecha,1)||perFecha; perMsg=''; render(); }
+  else if(act==='per-today'){ perFecha=todayStr(); perMsg=''; render(); }
+  else if(act==='per-rango'){ perRango=el.getAttribute('data-v')||'semana'; render(); }
+  else if(act==='per-add'){ perAdd(el.closest('[data-form="perform"]')); }
+  else if(act==='per-del'){ perDel(el.getAttribute('data-oid'),el.getAttribute('data-eid')); }
   else if(act==='dash-conf'){ dashConf=el.getAttribute('data-v')||'confpar'; render(); }
   else if(act==='dash-gran'){ dashGran=el.getAttribute('data-v')||'semana'; render(); }
   else if(act==='cal-prev'){ if(calMode==='week'){ calWeekStart=addDays(calWeekStart,-7); } else { calM--; if(calM<0){calM=11;calY--;} } render(); }
@@ -1139,6 +1355,7 @@ function onKeydown(e){ if(e.key==='Enter'&&e.target&&e.target.getAttribute&&e.ta
 function onChange(e){
   var t=e.target;
   if(t&&t.name==='dashmes'){ dashMes=t.value||''; render(); return; }
+  if(t&&t.name==='perfecha'){ if(t.value){ perFecha=t.value; perMsg=''; render(); } return; }
   if(t.classList&&t.classList.contains('photo-file')){
     var files=t.files; if(!files||!files.length) return; var cid=t.getAttribute('data-cid');
     if(!Array.isArray(photoBuf[cid])) photoBuf[cid]=[];
@@ -1169,7 +1386,7 @@ function onChange(e){
   setInterval(function(){
     if(pendingOps.length){ flushOps(); return; }
     if(!session) return;
-    if(view!=='list'&&view!=='calendar'&&view!=='dashboard') return;
+    if(view!=='list'&&view!=='calendar'&&view!=='dashboard'&&view!=='personal') return;
     if(confirmingDelete) return;
     fetchOrders().then(function(list){ var fp=fingerprint(list); if(fp!==lastFp){ lastFp=fp; orders=list; render(); } }).catch(function(){});
   },20000);
