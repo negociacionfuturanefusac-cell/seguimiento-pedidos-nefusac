@@ -60,6 +60,8 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .oc-name-wrap{min-width:0}
 .oc-name-wrap .mono{margin-top:2px}
 .oc-bot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.oc-fin{display:inline-flex;align-items:center;gap:4px;color:#047857;white-space:nowrap}
+.oc-fin .ic{width:13px;height:13px}
 .badge{display:inline-flex;align-items:center;gap:6px;flex:none;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;background:var(--soft);color:var(--softtext);white-space:nowrap}
 .badge .ic{width:14px;height:14px}
 .badge-done{background:#ecfdf5;color:#047857}
@@ -596,12 +598,16 @@ function badgeHTML(o){
   if(o.stageIndex===4) return '<span class="badge badge-done">'+svg('check')+'Finalizado</span>';
   return '<span class="badge">'+svg(s.icon)+esc(s.short)+'</span>';
 }
+function fechaFinal(o){ var f=(o&&o.data&&o.data.finalizado)?o.data.finalizado.fecha_entrega:''; return f||''; }
+function esFinalizado(o){ return o.stageIndex===4&&!isVentaCaida(o); }
 function orderCardHTML(o){
   var vc=isVentaCaida(o); var s=vc?VENTA_CAIDA_STAGE:STAGES[o.stageIndex];
   return '<button class="oc" data-act="open" data-id="'+o.id+'" style="'+cssVars(s)+'">'+
     '<div class="oc-top"><div class="oc-name-wrap"><div class="oc-name">'+esc(o.cliente||'Sin nombre')+'</div><div class="mono muted-xs">'+esc(o.code)+'</div></div>'+'</div>'+
     (vc?ventaCaidaCardHTML(o):progressStepperHTML(o.stageIndex,o.skip))+
-    '<div class="oc-bot"><span class="mono muted-xs">'+esc(fmtDate(dateOnly(o.createdAt)))+'</span></div></button>';
+    '<div class="oc-bot"><span class="mono muted-xs">'+esc(fmtDate(dateOnly(o.createdAt)))+'</span>'+
+    ((esFinalizado(o)&&fechaFinal(o))?('<span class="mono muted-xs oc-fin">'+svg('check')+'Entrega '+esc(fmtDate(fechaFinal(o)))+'</span>'):'')+
+    '</div></button>';
 }
 function chipsHTML(){
   var cur=filter||'all';
@@ -613,7 +619,15 @@ function chipsHTML(){
 function listWrapHTML(){
   var q=search.trim().toLowerCase();
   var filtered=orders.filter(function(o){ var mf=(filter===null)||(filter==='venta_caida'?isVentaCaida(o):(STAGES[o.stageIndex].key===filter&&!isVentaCaida(o))); return mf && (o.cliente||'').toLowerCase().indexOf(q)!==-1; });
-  filtered.sort(function(a,b){ var af=(a.stageIndex===4||isVentaCaida(a))?1:0,bf=(b.stageIndex===4||isVentaCaida(b))?1:0; if(af!==bf) return af-bf; return b.createdAt-a.createdAt; });
+  filtered.sort(function(a,b){
+    var af=(a.stageIndex===4||isVentaCaida(a))?1:0, bf=(b.stageIndex===4||isVentaCaida(b))?1:0;
+    if(af!==bf) return af-bf;                                  /* 1) primero los pendientes */
+    if(af===1){                                                /* 2) cerrados: por fecha de finalizacion, de la ultima a la primera */
+      var fa=fechaFinal(a), fb=fechaFinal(b);
+      if(fa!==fb){ if(!fa) return 1; if(!fb) return -1; return fa<fb?1:-1; }
+    }
+    return b.createdAt-a.createdAt;
+  });
   var meta=orders.length?('<div class="meta"><span class="mono muted-xs">'+filtered.length+' de '+orders.length+' pedido'+(orders.length!==1?'s':'')+'</span><button class="linkbtn" data-act="export">'+svg('download')+'Exportar CSV</button></div>'):'';
   var body;
   if(loadingData&&orders.length===0){
