@@ -60,6 +60,10 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .oc-name-wrap{min-width:0}
 .oc-name-wrap .mono{margin-top:2px}
 .oc-bot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}
+.rk-pos{width:34px;text-align:center;font-family:ui-monospace,monospace;color:#94a3b8;font-weight:700}
+.rk-name{font-weight:700;color:#0f172a}
+.dash-tbl tr.rk-top .rk-pos{color:#0d9488}
+.rk-badge{display:inline-block;font-family:ui-monospace,monospace;font-size:9px;text-transform:uppercase;letter-spacing:.05em;background:#f0fdfa;color:#0f766e;border:1px solid #99f6e4;border-radius:5px;padding:1px 5px;vertical-align:middle}
 .oc-fin{display:inline-flex;align-items:center;gap:4px;color:#047857;white-space:nowrap}
 .oc-fin .ic{width:13px;height:13px}
 .badge{display:inline-flex;align-items:center;gap:6px;flex:none;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600;background:var(--soft);color:var(--softtext);white-space:nowrap}
@@ -879,7 +883,7 @@ function dashPagos(){
     var pg=(o.data&&o.data.pago)||{}; var n=moneyNum(pg.importe);
     if(n===null||!pg.fecha_programada) return;
     if(!dashIncluye(pg.confirmacion)) return;
-    res.push({f:pg.fecha_programada,v:n});
+    res.push({f:pg.fecha_programada,v:n,c:o.cliente||''});
   });
   return res;
 }
@@ -918,7 +922,7 @@ function dashboardData(){
   while(pts.length&&pts[0].total<=0) pts.shift();
   if(dashMes){ while(pts.length&&pts[pts.length-1].total<=0) pts.pop(); }
   var hoy=todayStr();
-  return {puntos:pts,anio:base.anio,actual:(dashGran==='mes')?hoy.slice(0,7):mondayOf(hoy)};
+  return {puntos:pts,anio:base.anio,ini:ini,fin:fin,actual:(dashGran==='mes')?hoy.slice(0,7):mondayOf(hoy)};
 }
 function dashChartHTML(W){
   var PW=720,PH=320,pl=62,pr=16,pt=20,pb=44;
@@ -994,6 +998,67 @@ function comparativoHTML(){
     '<div class="cmp-nota">Acumulado de todo el año '+anio+' ('+ac.n+' pedido'+(ac.n!==1?'s':'')+') · no cambia con el filtro de periodo</div>'+
     '</div>';
 }
+/* ==== Ranking de clientes (MAESTRO e IBBIS se agrupan) ==== */
+var CLIENTE_GRUPOS=['MAESTRO','IBBIS'];
+function normCliente(s){
+  s=String(s==null?'':s).toUpperCase();
+  s=s.replace(/[\u00C1\u00C0\u00C4\u00C2]/g,'A').replace(/[\u00C9\u00C8\u00CB\u00CA]/g,'E').replace(/[\u00CD\u00CC\u00CF\u00CE]/g,'I').replace(/[\u00D3\u00D2\u00D6\u00D4]/g,'O').replace(/[\u00DA\u00D9\u00DC\u00DB]/g,'U').replace(/\u00D1/g,'N');
+  return s.replace(/\s+/g,' ').trim();
+}
+function clienteGrupo(nombre){
+  var n=normCliente(nombre);
+  for(var i=0;i<CLIENTE_GRUPOS.length;i++){
+    var g=CLIENTE_GRUPOS[i];
+    if(n===g||(n.indexOf(g)===0&&!/[A-Z]/.test(n.charAt(g.length)))) return g;
+  }
+  return String(nombre==null?'':nombre).replace(/\s+/g,' ').trim()||'Sin cliente';
+}
+function esGrupo(nombre){ return CLIENTE_GRUPOS.indexOf(nombre)!==-1; }
+function rankingClientes(ini,fin){
+  var m={}, total=0;
+  dashPagos().forEach(function(p){
+    if(p.f<ini||p.f>fin) return;
+    var g=clienteGrupo(p.c);
+    if(!m[g]) m[g]={cliente:g,total:0,n:0,nombres:{}};
+    m[g].total+=p.v; m[g].n++;
+    var orig=String(p.c==null?'':p.c).replace(/\s+/g,' ').trim();
+    if(orig) m[g].nombres[orig]=(m[g].nombres[orig]||0)+p.v;
+    total+=p.v;
+  });
+  var list=Object.keys(m).map(function(k){
+    var r=m[k]; r.locales=Object.keys(r.nombres).length; return r;
+  }).sort(function(a,b){ return b.total-a.total; });
+  return {list:list,total:total};
+}
+function rankingHTML(ini,fin,periodoTxt){
+  var R=rankingClientes(ini,fin);
+  if(!R.list.length){
+    return '<div class="dash-sec"><div class="dash-sectitle">Ranking de clientes &middot; '+esc(periodoTxt)+'</div>'+
+      '<div class="dash-card"><div class="dash-empty">Sin importes registrados en '+esc(periodoTxt)+'.</div></div></div>';
+  }
+  var max=R.list[0].total||0;
+  var filas=R.list.map(function(r,i){
+    var pct=R.total>0?(r.total/R.total*100):0;
+    var w=max>0?(r.total/max*100):0;
+    var col=(i===0)?'#0d9488':(i===1?'#14b8a6':(i===2?'#5eead4':'#cbd5e1'));
+    var sub=(esGrupo(r.cliente)&&r.locales>1)?('<div class="kpi-sub" style="margin-top:3px">agrupa '+r.locales+' razones sociales o locales</div>'):'';
+    return '<tr'+(i<3?' class="rk-top"':'')+'>'+
+      '<td class="rk-pos">'+(i+1)+'</td>'+
+      '<td><div class="rk-name">'+esc(r.cliente)+(esGrupo(r.cliente)?' <span class="rk-badge">grupo</span>':'')+'</div>'+sub+
+        '<div class="per-bar"><div class="per-barfill" style="width:'+w.toFixed(1)+'%;background:'+col+'"></div></div></td>'+
+      '<td class="num">'+r.n+'</td>'+
+      '<td class="num">'+esc(fmtMoney(r.total))+'</td>'+
+      '<td class="num">'+pct.toFixed(1).replace('.',',')+'%</td>'+
+      '</tr>';
+  }).join('');
+  return '<div class="dash-sec"><div class="dash-sectitle">Ranking de clientes &middot; '+esc(periodoTxt)+'</div>'+
+    '<div class="dash-card"><div class="dash-scroll"><table class="dash-tbl">'+
+    '<thead><tr><th class="rk-pos">#</th><th>Cliente</th><th class="num">Pedidos</th><th class="num">Importe</th><th class="num">% del total</th></tr></thead>'+
+    '<tbody>'+filas+'</tbody>'+
+    '<tfoot><tr class="now"><td></td><td><b>Total</b></td><td class="num">'+R.list.reduce(function(a,r){return a+r.n;},0)+'</td>'+
+    '<td class="num">'+esc(fmtMoney(R.total))+'</td><td class="num">100%</td></tr></tfoot>'+
+    '</table></div></div></div>';
+}
 function viewDashboard(){
   var D=dashboardData(), W=D.puntos, esMes=(dashGran==='mes');
   var unidad=esMes?'mes':'semana', unidadPl=esMes?'meses':'semanas';
@@ -1035,9 +1100,11 @@ function viewDashboard(){
   var filas=W.slice().reverse().map(function(w){
     return '<tr'+(w.key===D.actual?' class="now"':'')+'><td>'+esc(w.rango)+'</td><td class="num">'+w.n+'</td><td class="num">'+esc(w.total>0?fmtMoney(w.total):'—')+'</td></tr>';
   }).join('');
+  var _rkIni=dashMes?(dashMes+'-01'):D.ini, _rkFin=dashMes?ultimoDiaMes(dashMes):D.fin;
+  var ranking=rankingHTML(_rkIni,_rkFin,periodoTxt);
   var tabla=(W.length&&sum>0)?('<div class="dash-sec"><div class="dash-sectitle">Detalle por '+unidad+'</div><div class="dash-card"><div class="dash-scroll"><table class="dash-tbl"><thead><tr><th>'+(esMes?'Mes':'Semana')+'</th><th class="num">Pedidos</th><th class="num">Importe</th></tr></thead><tbody>'+filas+'</tbody></table></div></div></div>'):'';
   return topbar('Dashboard','Importe facturado por '+unidad,true,STAGES[3],'<button class="icon-btn" data-act="print" aria-label="Imprimir">'+svg('printer')+'</button>')+
-    '<div class="wrap main">'+chips+ctrls+comparativoHTML()+kpis+cuerpo+tabla+
+    '<div class="wrap main">'+chips+ctrls+comparativoHTML()+kpis+cuerpo+tabla+ranking+
     '<p class="footnote">Se agrupa por la fecha programada del pago · solo visible para el administrador</p>'+
     '</div>';
 }
