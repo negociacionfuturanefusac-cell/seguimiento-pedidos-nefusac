@@ -821,6 +821,8 @@ function weekRange(k){ return weekLbl(k)+' – '+weekLbl(addDays(k,6)); }
 function fmtMoneyShort(n){ if(n===null||n===undefined) return '—'; var a=Math.abs(n); if(a>=1000000) return 'S/ '+(n/1000000).toFixed(1).replace(/\.0$/,'')+'M'; if(a>=1000) return 'S/ '+(n/1000).toFixed(1).replace(/\.0$/,'')+'k'; return 'S/ '+Math.round(n); }
 function niceStep(v){ if(!(v>0)) return 25; var p=Math.pow(10,Math.floor(Math.log(v)/Math.LN10)); var f=v/p; var m=(f<=1)?1:(f<=2)?2:(f<=2.5)?2.5:(f<=5)?5:10; return m*p; }
 function escalaY(maxV){ if(!(maxV>0)) return {max:100,pasos:4}; var st=niceStep(maxV/4); var t=Math.ceil(maxV*1.06/st); if(t>6){ st=niceStep(maxV/6); t=Math.ceil(maxV*1.06/st); } if(t<2) t=2; return {max:st*t,pasos:t}; }
+var DASH_ANIO_MIN=2026;
+function mesLargoMin(ym){ var t=mesLargo(ym); return t.charAt(0).toLowerCase()+t.slice(1); }
 function dashIncluye(c){ c=c||''; if(dashConf==='todos') return c!=='Venta caída'; if(dashConf==='conf') return c==='Confirmado'; return c==='Confirmado'||c==='Parcial'; }
 function mesLbl(ym){ return MES_CORTO[parseInt(ym.slice(5,7),10)-1]+' '+ym.slice(0,4); }
 function mesLargo(ym){ var N=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']; return N[parseInt(ym.slice(5,7),10)-1]+' '+ym.slice(0,4); }
@@ -838,9 +840,9 @@ function dashPagos(){
   return res;
 }
 function dashPeriodoBase(){
-  var hoy=todayStr(); var yy=parseInt(hoy.slice(0,4),10), mm=parseInt(hoy.slice(5,7),10);
-  var anio=(mm>=7)?yy:yy-1;
-  var ini=anio+'-07-01', fin=hoy;
+  var hoy=todayStr(); var yy=parseInt(hoy.slice(0,4),10);
+  var anio=(yy<DASH_ANIO_MIN)?DASH_ANIO_MIN:yy;
+  var ini=anio+'-01-01', fin=hoy;
   dashPagos().forEach(function(p){ if(p.f>fin&&p.f>=ini) fin=p.f; });
   return {ini:ini,fin:fin,anio:anio};
 }
@@ -978,7 +980,8 @@ function viewDashboard(){
     '<div class="kpi"><div class="kpi-lbl">Mejor '+unidad+'</div><div class="kpi-val">'+esc((best&&best.total>0)?fmtMoney(best.total):'—')+'</div><div class="kpi-sub">'+esc(best&&best.total>0?best.rango:'Sin datos')+'</div></div>'+
     '<div class="kpi"><div class="kpi-lbl">'+(esMes?'Mes':'Semana')+(dashMes?' más reciente':' actual')+'</div><div class="kpi-val">'+esc(act?fmtMoney(act.total):'—')+'</div><div class="kpi-sub">'+esc(act?act.rango:'—')+'</div></div>'+
     '</div>';
-  var periodoTxt=dashMes?mesLargo(dashMes):('julio '+D.anio+' a la fecha');
+  var periodoTxt=dashMes?mesLargo(dashMes)
+    :(W.length?(mesLargoMin(W[0].key.slice(0,7))+' a la fecha'):('enero '+D.anio+' a la fecha'));
   var cuerpo;
   if(!W.length||sum<=0){
     cuerpo='<div class="dash-card"><div class="dash-empty">No hay importes registrados en '+esc(periodoTxt)+'.<br>El gráfico se llena solo conforme Logística confirme los pagos.</div></div>';
