@@ -156,7 +156,7 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .per-addbtn:hover{background:#6d28d9}
 .per-msg{margin:0 6px 12px;font-size:12px;border-radius:8px;padding:8px 10px;background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe}
 .per-msg.err{background:#fef2f2;color:#991b1b;border-color:#fecaca}
-.per-x{border:none;background:none;color:#cbd5e1;cursor:pointer;padding:2px;line-height:0;border-radius:6px}
+.per-x{border:none;background:none;color:#94a3b8;cursor:pointer;padding:3px;line-height:0;border-radius:6px}
 .per-x:hover{color:#dc2626;background:#fef2f2}
 .per-who{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:#0f172a}
 .per-dot{width:8px;height:8px;border-radius:50%;flex:none}
@@ -164,6 +164,19 @@ html,body{margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple
 .per-barfill{height:100%;border-radius:999px}
 .kpi.over .kpi-val{color:#b45309}
 .per-tag{display:inline-block;font-family:ui-monospace,monospace;font-size:10px;background:#f1f5f9;color:#475569;border-radius:6px;padding:2px 6px}
+.per-acts{display:inline-flex;gap:2px;justify-content:flex-end}
+.per-x .ic,.per-e .ic{width:15px;height:15px}
+.per-addbtn .ic{width:15px;height:15px}
+.per-e{border:none;background:none;color:#94a3b8;cursor:pointer;padding:3px;line-height:0;border-radius:6px}
+.per-e:hover{color:#7c3aed;background:#f5f3ff}
+.per-editrow>td{background:#faf5ff;padding:0;border-left:3px solid #7c3aed}
+.per-editbox{padding:12px 4px 2px}
+.per-edittitle{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#6d28d9;padding:0 6px 10px}
+.per-edittitle .ic{width:14px;height:14px}
+.per-eacts{display:flex;gap:8px;padding:0 6px 12px;flex-wrap:wrap}
+.per-cancelbtn{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#475569;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.per-cancelbtn:hover{background:#f8fafc}
+@media(min-width:700px){.per-egrid{grid-template-columns:1fr 1.4fr .6fr 1.2fr .9fr}}
 .cmp{border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:14px;margin-bottom:14px}
 .cmp-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
 .cmp-t{font-family:ui-monospace,monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
@@ -357,6 +370,7 @@ var ICON = {
   download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
   lock:'<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   check:'<path d="M20 6 9 17l-5-5"/>',
+  pen:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
   report:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
   printer:'<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
   logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
@@ -510,6 +524,7 @@ var PERSONAL=['Santos','Yorick','Juan de Dios','Eduardo'];
 var PERSONAL_COLOR={'Santos':'#0284c7','Yorick':'#7c3aed','Juan de Dios':'#d97706','Eduardo':'#0d9488'};
 var JORNADA=8;
 var perFecha=todayStr(), perRango='semana', perMsg='', perMsgErr=false;
+var perEdit='', perEditOid='';
 var USERS={
   vendedor:{pass:'vendedor123',role:'vendedor',name:'Vendedor'},
   tecnico:{pass:'tecnico123',role:'tecnico',name:'Técnico'},
@@ -1191,6 +1206,46 @@ function perDel(oid,eid){
   perMsg='Registro eliminado.'; perMsgErr=false;
   render();
 }
+function perEditStart(oid,eid){
+  if(!canHoras()) return;
+  perEdit=eid||''; perEditOid=oid||''; perMsg=''; perMsgErr=false;
+  render();
+}
+function perEditCancel(){ perEdit=''; perEditOid=''; perMsg=''; perMsgErr=false; render(); }
+function perSave(el){
+  if(!canHoras()||!el) return;
+  var c=el.closest('[data-form="peredit"]'); if(!c) return;
+  var gv=function(n){ var x=c.querySelector('[name="'+n+'"]'); return x?x.value:''; };
+  var oidOld=el.getAttribute('data-oid'), eid=el.getAttribute('data-eid');
+  var per=gv('eppersona'), oidNew=gv('eppedido'), act=(gv('epact')||'').trim(), fec=gv('epfecha')||perFecha;
+  var hs=parseFloat(gv('ephoras'));
+  if(!per||!oidNew||!(hs>0)){ perMsg='Elige trabajador, pedido y una cantidad de horas mayor a 0.'; perMsgErr=true; render(); return; }
+  if(hs>24) hs=24;
+  var oOld=getOrder(oidOld);
+  if(!oOld||!oOld.data||!Array.isArray(oOld.data.horas)){ perMsg='No se encontró el registro que quieres corregir.'; perMsgErr=true; render(); return; }
+  var reg=null,i;
+  for(i=0;i<oOld.data.horas.length;i++){ if(oOld.data.horas[i]&&oOld.data.horas[i].id===eid){ reg=oOld.data.horas[i]; break; } }
+  if(!reg){ perMsg='No se encontró el registro que quieres corregir.'; perMsgErr=true; render(); return; }
+  var nuevo={id:reg.id,fecha:fec,persona:per,horas:Math.round(hs*100)/100,act:act};
+  var oDest=oOld;
+  if(oidNew===oidOld){
+    for(i=0;i<oOld.data.horas.length;i++){ if(oOld.data.horas[i]&&oOld.data.horas[i].id===eid){ oOld.data.horas[i]=nuevo; } }
+    queueSaveOrder(oOld);
+  } else {
+    var oNew=getOrder(oidNew);
+    if(!oNew){ perMsg='No se encontró el pedido al que quieres mover el registro.'; perMsgErr=true; render(); return; }
+    oOld.data.horas=oOld.data.horas.filter(function(x){ return !x||x.id!==eid; });
+    if(!oNew.data) oNew.data={};
+    if(!Array.isArray(oNew.data.horas)) oNew.data.horas=[];
+    oNew.data.horas.push(nuevo);
+    queueSaveOrder(oOld); queueSaveOrder(oNew);
+    oDest=oNew;
+  }
+  perEdit=''; perEditOid='';
+  perMsg='Corregido: '+per+' · '+fmtH(nuevo.horas)+' en '+((oDest&&oDest.code)||'')+'.'+(fec!==perFecha?(' El registro se movió al '+fmtDate(fec)+'.'):'');
+  perMsgErr=false;
+  render();
+}
 function perResumenPersona(rows){
   var m={};
   PERSONAL.forEach(function(n){ m[n]={persona:n,horas:0,dias:{},peds:{},n:0}; });
@@ -1260,12 +1315,36 @@ function viewPersonal(){
   }
 
   var filas=delDia.map(function(h){
+    if(puedo&&perEdit===h.id){
+      var optPerE='<option value="">Trabajador…</option>'+PERSONAL.map(function(n){ return '<option value="'+escA(n)+'"'+(n===h.persona?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
+      var hayPed=false;
+      var optPedE=peds.map(function(o){ if(o.id===h.oid) hayPed=true; return '<option value="'+escA(o.id)+'"'+(o.id===h.oid?' selected':'')+'>'+esc((o.code||'')+' · '+(o.cliente||'Sin cliente'))+'</option>'; }).join('');
+      if(!hayPed) optPedE='<option value="'+escA(h.oid)+'" selected>'+esc((h.code||'')+' · '+(h.cliente||'Sin cliente'))+'</option>'+optPedE;
+      return '<tr class="per-editrow"><td colspan="5">'+
+        '<div class="per-editbox" data-form="peredit">'+
+          '<div class="per-edittitle">'+svg('pen')+' Corregir el registro de '+esc(h.persona)+' &middot; '+esc(h.code)+'</div>'+
+          '<div class="per-fgrid per-egrid">'+
+            '<label class="per-f"><span class="flabel">Trabajador</span><select class="inp" name="eppersona">'+optPerE+'</select></label>'+
+            '<label class="per-f"><span class="flabel">Pedido</span><select class="inp" name="eppedido">'+optPedE+'</select></label>'+
+            '<label class="per-f"><span class="flabel">Horas</span><input class="inp" type="number" name="ephoras" step="0.5" min="0" max="24" inputmode="decimal" value="'+escA(String(h.horas))+'"></label>'+
+            '<label class="per-f"><span class="flabel">Actividad</span><input class="inp" type="text" name="epact" value="'+escA(h.act||'')+'" placeholder="Instalación, medición, taller…"></label>'+
+            '<label class="per-f"><span class="flabel">Fecha</span><input class="inp" type="date" name="epfecha" value="'+escA(h.fecha)+'"></label>'+
+          '</div>'+
+          '<div class="per-eacts">'+
+            '<button class="per-addbtn" data-act="per-save" data-oid="'+escA(h.oid)+'" data-eid="'+escA(h.id)+'">'+svg('check')+' Guardar cambios</button>'+
+            '<button class="per-cancelbtn" data-act="per-cancel">Cancelar</button>'+
+          '</div>'+
+        '</div></td></tr>';
+    }
     return '<tr>'+
       '<td><span class="per-who"><span class="per-dot" style="background:'+perColor(h.persona)+'"></span>'+esc(h.persona)+'</span></td>'+
       '<td><span class="per-tag">'+esc(h.code)+'</span> '+esc(h.cliente)+'</td>'+
       '<td>'+esc(h.act||'—')+'</td>'+
       '<td class="num">'+esc(fmtH(h.horas))+'</td>'+
-      (puedo?('<td class="num"><button class="per-x" data-act="per-del" data-oid="'+escA(h.oid)+'" data-eid="'+escA(h.id)+'" aria-label="Quitar registro">'+svg('x')+'</button></td>'):'')+
+      (puedo?('<td class="num"><div class="per-acts">'+
+        '<button class="per-e" data-act="per-edit" data-oid="'+escA(h.oid)+'" data-eid="'+escA(h.id)+'" aria-label="Corregir registro" title="Corregir">'+svg('pen')+'</button>'+
+        '<button class="per-x" data-act="per-del" data-oid="'+escA(h.oid)+'" data-eid="'+escA(h.id)+'" aria-label="Quitar registro" title="Quitar">'+svg('x')+'</button>'+
+        '</div></td>'):'')+
       '</tr>';
   }).join('');
   var tablaDia='<div class="dash-sec"><div class="dash-sectitle">Detalle del día</div><div class="dash-card">'+
@@ -1407,12 +1486,15 @@ function onClick(e){
   else if(act==='report'){ if(currentRole()==='visita') return; view='report'; render(); window.scrollTo(0,0); }
   else if(act==='calendar'){ view='calendar'; render(); window.scrollTo(0,0); }
   else if(act==='dashboard'){ if(!canMod()) return; view='dashboard'; render(); window.scrollTo(0,0); }
-  else if(act==='personal'){ if(!canHoras()) return; perMsg=''; perMsgErr=false; view='personal'; render(); window.scrollTo(0,0); }
-  else if(act==='per-prev'){ perFecha=addDays(perFecha,-1)||perFecha; perMsg=''; render(); }
-  else if(act==='per-next'){ perFecha=addDays(perFecha,1)||perFecha; perMsg=''; render(); }
-  else if(act==='per-today'){ perFecha=todayStr(); perMsg=''; render(); }
+  else if(act==='personal'){ if(!canHoras()) return; perMsg=''; perMsgErr=false; perEdit=''; perEditOid=''; view='personal'; render(); window.scrollTo(0,0); }
+  else if(act==='per-prev'){ perFecha=addDays(perFecha,-1)||perFecha; perMsg=''; perEdit=''; render(); }
+  else if(act==='per-next'){ perFecha=addDays(perFecha,1)||perFecha; perMsg=''; perEdit=''; render(); }
+  else if(act==='per-today'){ perFecha=todayStr(); perMsg=''; perEdit=''; render(); }
   else if(act==='per-rango'){ perRango=el.getAttribute('data-v')||'semana'; render(); }
   else if(act==='per-add'){ perAdd(el.closest('[data-form="perform"]')); }
+  else if(act==='per-edit'){ perEditStart(el.getAttribute('data-oid'),el.getAttribute('data-eid')); }
+  else if(act==='per-save'){ perSave(el); }
+  else if(act==='per-cancel'){ perEditCancel(); }
   else if(act==='per-del'){ perDel(el.getAttribute('data-oid'),el.getAttribute('data-eid')); }
   else if(act==='dash-conf'){ dashConf=el.getAttribute('data-v')||'confpar'; render(); }
   else if(act==='dash-gran'){ dashGran=el.getAttribute('data-v')||'semana'; render(); }
@@ -1436,7 +1518,7 @@ function onKeydown(e){ if(e.key==='Enter'&&e.target&&e.target.getAttribute&&e.ta
 function onChange(e){
   var t=e.target;
   if(t&&t.name==='dashmes'){ dashMes=t.value||''; render(); return; }
-  if(t&&t.name==='perfecha'){ if(t.value){ perFecha=t.value; perMsg=''; render(); } return; }
+  if(t&&t.name==='perfecha'){ if(t.value){ perFecha=t.value; perMsg=''; perEdit=''; render(); } return; }
   if(t.classList&&t.classList.contains('photo-file')){
     var files=t.files; if(!files||!files.length) return; var cid=t.getAttribute('data-cid');
     if(!Array.isArray(photoBuf[cid])) photoBuf[cid]=[];
@@ -1469,6 +1551,7 @@ function onChange(e){
     if(!session) return;
     if(view!=='list'&&view!=='calendar'&&view!=='dashboard'&&view!=='personal') return;
     if(confirmingDelete) return;
+    if(perEdit) return;
     fetchOrders().then(function(list){ var fp=fingerprint(list); if(fp!==lastFp){ lastFp=fp; orders=list; render(); } }).catch(function(){});
   },20000);
 })();
